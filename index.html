@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SQL Case to Kendo Filter Converter</title>
+    
+    <!-- Kendo UI Dependencies - Load synchronously -->
+    <link rel="stylesheet" href="https://kendo.cdn.telerik.com/themes/10.2.0/default/default-ocean-blue.css">
+    
+    <!-- Custom styles to ensure Kendo UI widgets render properly -->
+    <style>
+      /* Ensure Kendo UI widgets don't get overridden by our CSS */
+      .k-widget, .k-filter, .k-grid, .k-dropdown, .k-button, .k-textbox {
+        font-family: inherit !important;
+        box-sizing: border-box !important;
+      }
+      
+      /* Ensure filter container has proper background */
+      #demo-filter.k-widget {
+        background: #ffffff !important;
+        border: 1px solid #d1d5db !important;
+        border-radius: 0.5rem !important;
+      }
+      
+      /* Ensure grid has proper styling */
+      #demo-grid .k-grid {
+        border: 1px solid #d1d5db !important;
+        border-radius: 0.5rem !important;
+      }
+      
+      /* Fix any potential z-index issues */
+      .k-animation-container {
+        z-index: 1000 !important;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Load scripts before our module to ensure they're available -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://kendo.cdn.telerik.com/2023.3.1010/js/kendo.all.min.js" 
+            onerror="console.error('Failed to load Kendo UI from CDN')"></script>
+    
+    <!-- Fallback check for Kendo UI -->
+    <script>
+      window.addEventListener('load', function() {
+        console.log('Page loaded. jQuery available:', typeof $ !== 'undefined');
+        console.log('Kendo UI available:', typeof kendo !== 'undefined');
+        if (typeof kendo === 'undefined') {
+          console.error('Kendo UI failed to load from CDN');
+          document.body.insertAdjacentHTML('afterbegin', 
+            '<div style="background: #ff6b6b; color: white; padding: 10px; text-align: center;">' +
+            '⚠️ Kendo UI failed to load. Some features may not work.' +
+            '</div>'
+          );
+        }
+      });
+    </script>
+    
+    <div id="app"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
