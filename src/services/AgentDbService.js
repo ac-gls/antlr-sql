@@ -64,12 +64,8 @@ export class AgentDbService {
         throw new Error('AgentDB API does not support required operations - falling back to demo mode');
       }
 
-      // Optionally try to create/connect to the database (not critical)
-      try {
-        await this.createDatabase();
-      } catch (dbCreateError) {
-        console.log('Database creation failed, but continuing with existing database:', dbCreateError.message);
-      }
+      // Skip database creation and go straight to table creation
+      console.log('✅ API endpoints available, proceeding with table setup...');
 
       // Create the survey responses table
       await this.executeSQL({
@@ -116,53 +112,48 @@ export class AgentDbService {
     try {
       console.log('Testing AgentDB API connection...');
       
-      // Test the specific endpoints we actually need for our application
-      const endpointsToTest = [
-        { url: `${this.baseUrl}/database`, method: 'POST', purpose: 'database creation' },
-        { url: `${this.baseUrl}/execute`, method: 'POST', purpose: 'SQL execution' },
-        { url: `${this.baseUrl}/databases/${this.databaseToken}/execute`, method: 'POST', purpose: 'database-specific SQL execution' }
+      // Instead of testing POST endpoints (which might create unwanted side effects),
+      // let's test if we can execute a simple, safe SQL query
+      const testEndpoints = [
+        `${this.baseUrl}/execute`,
+        `${this.baseUrl}/database/execute`,
+        `${this.baseUrl}/databases/${this.databaseToken}/execute`,
+        `${this.baseUrl}/v1/database/${this.databaseToken}/execute`,
+        `${this.baseUrl}/api/database/${this.databaseToken}/execute`
       ];
       
-      let anyEndpointWorking = false;
-      
-      for (const endpoint of endpointsToTest) {
+      for (const url of testEndpoints) {
         try {
-          console.log(`Testing ${endpoint.purpose} endpoint: ${endpoint.url}`);
+          console.log(`Testing SQL execution endpoint: ${url}`);
           
-          // Make a test request to see if the endpoint exists
-          const response = await fetch(endpoint.url, {
-            method: endpoint.method,
+          // Try a simple SELECT query that should work on any SQL database
+          const response = await fetch(url, {
+            method: 'POST',
             headers: {
               'Authorization': `Bearer ${this.apiKey}`,
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-              // Minimal test payload
-              test: true
+              sql: 'SELECT 1 as test',
+              params: []
             })
           });
           
-          // If we get anything other than 404, the endpoint exists
+          // If we get a non-404 response, this endpoint exists
           if (response.status !== 404) {
-            console.log(`✓ ${endpoint.purpose} endpoint exists (status: ${response.status})`);
-            anyEndpointWorking = true;
-            break; // Found at least one working endpoint
+            console.log(`✅ Found working SQL endpoint: ${url} (status: ${response.status})`);
+            return true;
           } else {
-            console.log(`✗ ${endpoint.purpose} endpoint not found (404)`);
+            console.log(`✗ Endpoint not found: ${url}`);
           }
           
         } catch (error) {
-          console.log(`✗ ${endpoint.purpose} endpoint error:`, error.message);
+          console.log(`✗ Endpoint test failed: ${url} - ${error.message}`);
         }
       }
       
-      if (!anyEndpointWorking) {
-        console.log('❌ No AgentDB endpoints are available - API does not support required operations');
-        return false;
-      }
-      
-      console.log('✅ AgentDB API has working endpoints');
-      return true;
+      console.log('❌ No working AgentDB SQL endpoints found');
+      return false;
       
     } catch (error) {
       console.log('❌ AgentDB API connection test failed:', error.message);
