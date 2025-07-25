@@ -26,6 +26,19 @@ document.querySelector('#app').innerHTML = `
         <!-- Error Display -->
         <div data-sql-parser-target="errorDisplay" style="display: none;"></div>
 
+        <!-- Database Status Section -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+          <h2 class="text-2xl font-semibold mb-4">📊 Database Connection Status</h2>
+          <div id="database-status" class="mb-4">
+            <div class="p-3 rounded border-l-4 bg-yellow-50 border-yellow-400 text-yellow-700">
+              <div class="text-sm">Initializing database connection...</div>
+            </div>
+          </div>
+          <div id="database-stats">
+            <div class="text-sm text-gray-500">Database statistics will appear here once connected.</div>
+          </div>
+        </div>
+
         <!-- SQL Input Section -->
         <div class="bg-white rounded-lg shadow-md p-6">
           <h2 class="text-2xl font-semibold mb-4">SQL CASE Statement Input</h2>

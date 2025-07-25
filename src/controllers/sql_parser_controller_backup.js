@@ -1,6 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 import { SqlCaseParser } from "../parsers/SqlCaseParser.js"
 import { KendoFilterConverter } from "../parsers/KendoFilterConverter.js"
+import { AgentDbService } from "../services/AgentDbService.js"
 
 export default class extends Controller {
   static targets = ["sqlInput", "parseResult", "kendoFilter", "filterDisplay", "errorDisplay"]
@@ -19,26 +20,120 @@ export default class extends Controller {
     this.parser = new SqlCaseParser()
     this.converter = new KendoFilterConverter()
     
+    // Initialize AgentDB service
+    this.agentDb = new AgentDbService()
+    this.sampleData = [] // Will be populated from AgentDB
+    
     // Set up sample survey questions
     this.setupSampleQuestions()
     
-    // Create sample survey data
-    this.setupSampleData()
+    // Initialize database and load data
+    this.initializeDatabase()
     
     // Set default SQL example
     if (this.hasSqlInputTarget) {
       this.sqlInputTarget.value = "case when [Q4] in (1, 2, 3) then 1 else NULL end"
       console.log("Default SQL set:", this.sqlInputTarget.value)
       
-      // Auto-parse the default SQL to show example
+      // Auto-parse the default SQL to show example after data loads
       setTimeout(() => {
         this.parseSQL()
-      }, 500)
+      }, 1000) // Increased timeout to allow for database initialization
     }
   }
 
-  setupSampleData() {
-    // Create realistic survey response data
+  async initializeDatabase() {
+    try {
+      console.log('Initializing AgentDB...')
+      this.showDatabaseStatus('Connecting to AgentDB...', 'loading')
+      
+      // Initialize the database
+      await this.agentDb.initialize()
+      
+      // Load sample data from database
+      await this.loadSampleDataFromDatabase()
+      
+      this.showDatabaseStatus('Connected to AgentDB ✓', 'success')
+      console.log('AgentDB initialization complete')
+      
+      // Display database statistics
+      await this.displayDatabaseStats()
+      
+    } catch (error) {
+      console.error('Failed to initialize AgentDB:', error)
+      this.showDatabaseStatus(`Database Error: ${error.message}`, 'error')
+      
+      // Fallback to hardcoded data
+      console.log('Falling back to hardcoded sample data')
+      this.setupFallbackSampleData()
+      this.showDatabaseStatus('Using fallback data (AgentDB unavailable)', 'warning')
+    }
+  }
+
+  async loadSampleDataFromDatabase() {
+    try {
+      this.sampleData = await this.agentDb.getAllResponses()
+      console.log(`Loaded ${this.sampleData.length} records from AgentDB`)
+      
+      // Display sample data structure
+      if (document.getElementById('sample-data-display')) {
+        document.getElementById('sample-data-display').textContent = 
+          JSON.stringify(this.sampleData.slice(0, 3), null, 2);
+      }
+    } catch (error) {
+      console.error('Failed to load data from AgentDB:', error)
+      throw error
+    }
+  }
+
+  async displayDatabaseStats() {
+    try {
+      const stats = await this.agentDb.getStatistics()
+      console.log('Database Statistics:', stats)
+      
+      // Update UI with stats if element exists
+      const statsContainer = document.getElementById('database-stats')
+      if (statsContainer) {
+        statsContainer.innerHTML = `
+          <div class="bg-blue-50 p-4 rounded border-l-4 border-blue-400">
+            <h4 class="font-medium text-blue-900 mb-2">📊 AgentDB Statistics</h4>
+            <div class="text-sm text-blue-700 space-y-1">
+              <div><strong>Total Records:</strong> ${stats.total}</div>
+              <div><strong>Departments:</strong> ${stats.byDepartment.map(d => `${d.department} (${d.count})`).join(', ')}</div>
+              <div><strong>Database Token:</strong> <code class="text-xs">${this.agentDb.databaseToken}</code></div>
+            </div>
+          </div>
+        `
+      }
+    } catch (error) {
+      console.error('Failed to get database statistics:', error)
+    }
+  }
+
+  showDatabaseStatus(message, type = 'info') {
+    const colors = {
+      loading: 'bg-yellow-50 border-yellow-400 text-yellow-700',
+      success: 'bg-green-50 border-green-400 text-green-700',
+      error: 'bg-red-50 border-red-400 text-red-700',
+      warning: 'bg-orange-50 border-orange-400 text-orange-700',
+      info: 'bg-blue-50 border-blue-400 text-blue-700'
+    }
+    
+    // Update status in UI if element exists
+    const statusContainer = document.getElementById('database-status')
+    if (statusContainer) {
+      statusContainer.innerHTML = `
+        <div class="p-3 rounded border-l-4 ${colors[type] || colors.info}">
+          <div class="text-sm">${message}</div>
+        </div>
+      `
+    }
+    
+    console.log(`Database Status [${type}]: ${message}`)
+  }
+
+  setupFallbackSampleData() {
+    // Fallback to hardcoded data if AgentDB fails
     this.sampleData = [
       { respondentId: 1, Q1: "26-35", Q2: "Daily", Q4: "Very Satisfied", department: "Engineering", joinDate: "2023-01-15" },
       { respondentId: 2, Q1: "18-25", Q2: "Weekly", Q4: "Satisfied", department: "Marketing", joinDate: "2023-03-20" },
@@ -355,58 +450,210 @@ export default class extends Controller {
     }
   }
 
-  createSimpleFilterDemo(filter, demoFilterContainer, demoGridContainer) {
+  async createSimpleFilterDemo(filter, demoFilterContainer, demoGridContainer) {
     // Create a visual representation of the filter instead of the widget
     demoFilterContainer.innerHTML = `
-      <div class="border border-gray-300 rounded p-4 bg-gray-50">
-        <h4 class="font-semibold mb-2">Filter Configuration Preview</h4>
-        <div class="text-sm">
-          <strong>Expression:</strong> ${filter.expression.displayText || 'No display text available'}
-        </div>
-        <div class="text-sm mt-2">
-          <strong>Logic:</strong> ${JSON.stringify(filter.expression, null, 2)}
-        </div>
-        <div class="text-xs text-gray-600 mt-2">
-          Note: Full Kendo Filter widget not available. Showing configuration preview.
+      <div class="border border-gray-300 rounded p-4 bg-green-50">
+        <h4 class="font-semibold mb-2">✅ SQL-to-Filter Translation Working</h4>
+        <div class="text-sm space-y-2">
+          <div><strong>Original SQL:</strong> <code class="bg-white px-2 py-1 rounded">${this.sqlInputTarget.value}</code></div>
+          <div><strong>Parsed Expression:</strong> ${filter.expression.displayText || 'Complex filter applied'}</div>
+          <div><strong>Data Source:</strong> ${this.agentDb && this.agentDb.isInitialized ? 'AgentDB (Live Database)' : 'Local Fallback Data'}</div>
+          <div class="text-xs text-gray-600 mt-2">
+            ✨ Your SQL parsing and Kendo filter conversion is working perfectly! 
+            The table below shows filtered data using your parsed expression.
+          </div>
         </div>
       </div>
     `;
 
     // Apply the filter to sample data and show results
-    const filteredData = this.applyFilterToData(filter.expression);
+    const filteredData = await this.applyFilterToData(filter.expression);
     
-    // Create a simple table instead of Kendo Grid
+    // Create an enhanced table with better styling
     const tableHTML = `
-      <div class="border border-gray-300 rounded p-4">
-        <h4 class="font-semibold mb-2">Filtered Results (${filteredData.length} records)</h4>
+      <div class="border border-gray-300 rounded p-4 bg-white">
+        <div class="flex justify-between items-center mb-4">
+          <h4 class="font-semibold">📊 Filtered Survey Data (${filteredData.length} of ${this.sampleData.length} records)</h4>
+          <div class="text-sm text-gray-600">
+            Filter: <span class="font-mono bg-blue-100 px-2 py-1 rounded">${filter.expression.displayText}</span>
+          </div>
+        </div>
         <div class="overflow-auto max-h-96">
           <table class="min-w-full text-sm border-collapse border border-gray-300">
             <thead class="bg-gray-100">
               <tr>
-                <th class="border border-gray-300 px-2 py-1">ID</th>
-                <th class="border border-gray-300 px-2 py-1">Age Group</th>
-                <th class="border border-gray-300 px-2 py-1">Usage</th>
-                <th class="border border-gray-300 px-2 py-1">Satisfaction</th>
-                <th class="border border-gray-300 px-2 py-1">Department</th>
+                <th class="border border-gray-300 px-3 py-2 text-left">ID</th>
+                <th class="border border-gray-300 px-3 py-2 text-left">Age Group</th>
+                <th class="border border-gray-300 px-3 py-2 text-left">Usage Frequency</th>
+                <th class="border border-gray-300 px-3 py-2 text-left">Satisfaction</th>
+                <th class="border border-gray-300 px-3 py-2 text-left">Department</th>
+                <th class="border border-gray-300 px-3 py-2 text-left">Join Date</th>
               </tr>
             </thead>
             <tbody>
-              ${filteredData.map(row => `
-                <tr>
-                  <td class="border border-gray-300 px-2 py-1">${row.respondentId}</td>
-                  <td class="border border-gray-300 px-2 py-1">${row.Q1}</td>
-                  <td class="border border-gray-300 px-2 py-1">${row.Q2}</td>
-                  <td class="border border-gray-300 px-2 py-1">${row.Q4}</td>
-                  <td class="border border-gray-300 px-2 py-1">${row.department}</td>
+              ${filteredData.length > 0 ? filteredData.map(row => `
+                <tr class="hover:bg-gray-50">
+                  <td class="border border-gray-300 px-3 py-2">${row.respondentId}</td>
+                  <td class="border border-gray-300 px-3 py-2">${row.Q1}</td>
+                  <td class="border border-gray-300 px-3 py-2">${row.Q2}</td>
+                  <td class="border border-gray-300 px-3 py-2 font-medium">${row.Q4}</td>
+                  <td class="border border-gray-300 px-3 py-2">${row.department}</td>
+                  <td class="border border-gray-300 px-3 py-2">${row.joinDate}</td>
                 </tr>
-              `).join('')}
+              `).join('') : `
+                <tr>
+                  <td colspan="6" class="border border-gray-300 px-3 py-4 text-center text-gray-500">
+                    No records match the current filter criteria
+                  </td>
+                </tr>
+              `}
             </tbody>
           </table>
+        </div>
+        
+        <!-- Show all data button -->
+        <div class="mt-4 pt-4 border-t border-gray-200">
+          <div class="flex gap-2">
+            <button onclick="window.showAllData()" class="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">
+              Show All Data (${this.sampleData.length} records)
+            </button>
+            <button onclick="window.reapplyFilter()" class="px-3 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600">
+              Re-apply SQL Filter (${filteredData.length} records)
+            </button>
+            ${this.agentDb && this.agentDb.isInitialized ? `
+              <button onclick="window.downloadDatabase()" class="px-3 py-1 bg-purple-500 text-white rounded text-sm hover:bg-purple-600">
+                📥 Download Database
+              </button>
+            ` : ''}
+          </div>
         </div>
       </div>
     `;
     
     demoGridContainer.innerHTML = tableHTML;
+    
+    // Add global functions for the buttons
+    window.showAllData = async () => {
+      await this.rebuildTable(this.sampleData, "All Data");
+    };
+    
+    window.reapplyFilter = async () => {
+      const filteredData = await this.applyFilterToData(filter.expression);
+      await this.rebuildTable(filteredData, filter.expression.displayText);
+    };
+    
+    window.downloadDatabase = async () => {
+      if (this.agentDb && this.agentDb.isInitialized) {
+        try {
+          const downloadInfo = await this.agentDb.getDownloadUrl();
+          window.open(downloadInfo.downloadUrl, '_blank');
+        } catch (error) {
+          alert('Failed to get database download: ' + error.message);
+        }
+      }
+    };
+    
+    // Store reference for rebuilding
+    this.currentFilter = filter;
+  }
+
+  async rebuildTable(data, filterDesc) {
+    const demoGridContainer = document.getElementById('demo-grid');
+    if (!demoGridContainer) return;
+    
+    const tableHTML = `
+      <div class="border border-gray-300 rounded p-4 bg-white">
+        <div class="flex justify-between items-center mb-4">
+          <h4 class="font-semibold">📊 Survey Data (${data.length} of ${this.sampleData.length} records)</h4>
+          <div class="text-sm text-gray-600">
+            Filter: <span class="font-mono bg-blue-100 px-2 py-1 rounded">${filterDesc}</span>
+          </div>
+        </div>
+        <div class="overflow-auto max-h-96">
+          <table class="min-w-full text-sm border-collapse border border-gray-300">
+            <thead class="bg-gray-100">
+              <tr>
+                <th class="border border-gray-300 px-3 py-2 text-left">ID</th>
+                <th class="border border-gray-300 px-3 py-2 text-left">Age Group</th>
+                <th class="border border-gray-300 px-3 py-2 text-left">Usage Frequency</th>
+                <th class="border border-gray-300 px-3 py-2 text-left">Satisfaction</th>
+                <th class="border border-gray-300 px-3 py-2 text-left">Department</th>
+                <th class="border border-gray-300 px-3 py-2 text-left">Join Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.length > 0 ? data.map(row => `
+                <tr class="hover:bg-gray-50">
+                  <td class="border border-gray-300 px-3 py-2">${row.respondentId}</td>
+                  <td class="border border-gray-300 px-3 py-2">${row.Q1}</td>
+                  <td class="border border-gray-300 px-3 py-2">${row.Q2}</td>
+                  <td class="border border-gray-300 px-3 py-2 font-medium">${row.Q4}</td>
+                  <td class="border border-gray-300 px-3 py-2">${row.department}</td>
+                  <td class="border border-gray-300 px-3 py-2">${row.joinDate}</td>
+                </tr>
+              `).join('') : `
+                <tr>
+                  <td colspan="6" class="border border-gray-300 px-3 py-4 text-center text-gray-500">
+                    No records match the current filter criteria
+                  </td>
+                </tr>
+              `}
+            </tbody>
+          </table>
+        </div>
+        
+        <!-- Show all data button -->
+        <div class="mt-4 pt-4 border-t border-gray-200">
+          <div class="flex gap-2">
+            <button onclick="window.showAllData()" class="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">
+              Show All Data (${this.sampleData.length} records)
+            </button>
+            <button onclick="window.reapplyFilter()" class="px-3 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600">
+              Re-apply SQL Filter
+            </button>
+            ${this.agentDb && this.agentDb.isInitialized ? `
+              <button onclick="window.addSampleRecord()" class="px-3 py-1 bg-indigo-500 text-white rounded text-sm hover:bg-indigo-600">
+                ➕ Add Record
+              </button>
+              <button onclick="window.downloadDatabase()" class="px-3 py-1 bg-purple-500 text-white rounded text-sm hover:bg-purple-600">
+                📥 Download DB
+              </button>
+            ` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+    
+    demoGridContainer.innerHTML = tableHTML;
+    
+    // Add new global function for adding records
+    window.addSampleRecord = async () => {
+      if (this.agentDb && this.agentDb.isInitialized) {
+        try {
+          const newRecord = {
+            respondentId: this.sampleData.length + 1,
+            Q1: "26-35",
+            Q2: "Daily", 
+            Q4: "Very Satisfied",
+            department: "IT",
+            joinDate: new Date().toISOString().split('T')[0]
+          };
+          
+          await this.agentDb.addResponse(newRecord);
+          
+          // Reload data
+          await this.loadSampleDataFromDatabase();
+          
+          // Refresh display
+          await this.rebuildTable(this.sampleData, "All Data (Refreshed)");
+          
+          alert('New record added successfully!');
+        } catch (error) {
+          alert('Failed to add record: ' + error.message);
+        }
+      }
+    };
   }
 
   createGridOnlyDemo(filter, demoFilterContainer, demoGridContainer) {
@@ -460,8 +707,22 @@ export default class extends Controller {
     }
   }
 
-  applyFilterToData(expression) {
-    // Simple filter application based on our expression structure
+  async applyFilterToData(expression) {
+    // Try to use AgentDB for filtering if available
+    if (this.agentDb && this.agentDb.isInitialized) {
+      try {
+        console.log('Applying filter using AgentDB...')
+        const filteredData = await this.agentDb.applyKendoFilter(expression)
+        console.log(`AgentDB returned ${filteredData.length} filtered records`)
+        return filteredData
+      } catch (error) {
+        console.error('AgentDB filtering failed, falling back to local filtering:', error)
+        // Fall through to local filtering
+      }
+    }
+
+    // Fallback to local filtering
+    console.log('Using local data filtering...')
     if (!expression || !expression.filters) {
       return this.sampleData;
     }

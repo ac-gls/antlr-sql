@@ -16,6 +16,7 @@
     "vite": "^7.0.4"
   },
   "dependencies": {
+    "@agentdb/sdk": "^1.0.2",
     "@hotwired/stimulus": "^3.2.2",
     "@progress/kendo-ui": "^2025.2.702",
     "antlr4": "^4.13.2"

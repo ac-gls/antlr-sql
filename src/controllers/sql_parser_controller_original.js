@@ -1,7 +1,6 @@
 import { Controller } from "@hotwired/stimulus"
 import { SqlCaseParser } from "../parsers/SqlCaseParser.js"
 import { KendoFilterConverter } from "../parsers/KendoFilterConverter.js"
-import { AgentDbService } from "../services/AgentDbService.js"
 
 export default class extends Controller {
   static targets = ["sqlInput", "parseResult", "kendoFilter", "filterDisplay", "errorDisplay"]
@@ -20,120 +19,26 @@ export default class extends Controller {
     this.parser = new SqlCaseParser()
     this.converter = new KendoFilterConverter()
     
-    // Initialize AgentDB service
-    this.agentDb = new AgentDbService()
-    this.sampleData = [] // Will be populated from AgentDB
-    
     // Set up sample survey questions
     this.setupSampleQuestions()
     
-    // Initialize database and load data
-    this.initializeDatabase()
+    // Create sample survey data
+    this.setupSampleData()
     
     // Set default SQL example
     if (this.hasSqlInputTarget) {
       this.sqlInputTarget.value = "case when [Q4] in (1, 2, 3) then 1 else NULL end"
       console.log("Default SQL set:", this.sqlInputTarget.value)
       
-      // Auto-parse the default SQL to show example after data loads
+      // Auto-parse the default SQL to show example
       setTimeout(() => {
         this.parseSQL()
-      }, 1000) // Increased timeout to allow for database initialization
+      }, 500)
     }
   }
 
-  async initializeDatabase() {
-    try {
-      console.log('Initializing AgentDB...')
-      this.showDatabaseStatus('Connecting to AgentDB...', 'loading')
-      
-      // Initialize the database
-      await this.agentDb.initialize()
-      
-      // Load sample data from database
-      await this.loadSampleDataFromDatabase()
-      
-      this.showDatabaseStatus('Connected to AgentDB ✓', 'success')
-      console.log('AgentDB initialization complete')
-      
-      // Display database statistics
-      await this.displayDatabaseStats()
-      
-    } catch (error) {
-      console.error('Failed to initialize AgentDB:', error)
-      this.showDatabaseStatus(`Database Error: ${error.message}`, 'error')
-      
-      // Fallback to hardcoded data
-      console.log('Falling back to hardcoded sample data')
-      this.setupFallbackSampleData()
-      this.showDatabaseStatus('Using fallback data (AgentDB unavailable)', 'warning')
-    }
-  }
-
-  async loadSampleDataFromDatabase() {
-    try {
-      this.sampleData = await this.agentDb.getAllResponses()
-      console.log(`Loaded ${this.sampleData.length} records from AgentDB`)
-      
-      // Display sample data structure
-      if (document.getElementById('sample-data-display')) {
-        document.getElementById('sample-data-display').textContent = 
-          JSON.stringify(this.sampleData.slice(0, 3), null, 2);
-      }
-    } catch (error) {
-      console.error('Failed to load data from AgentDB:', error)
-      throw error
-    }
-  }
-
-  async displayDatabaseStats() {
-    try {
-      const stats = await this.agentDb.getStatistics()
-      console.log('Database Statistics:', stats)
-      
-      // Update UI with stats if element exists
-      const statsContainer = document.getElementById('database-stats')
-      if (statsContainer) {
-        statsContainer.innerHTML = `
-          <div class="bg-blue-50 p-4 rounded border-l-4 border-blue-400">
-            <h4 class="font-medium text-blue-900 mb-2">📊 AgentDB Statistics</h4>
-            <div class="text-sm text-blue-700 space-y-1">
-              <div><strong>Total Records:</strong> ${stats.total}</div>
-              <div><strong>Departments:</strong> ${stats.byDepartment.map(d => `${d.department} (${d.count})`).join(', ')}</div>
-              <div><strong>Database Token:</strong> <code class="text-xs">${this.agentDb.databaseToken}</code></div>
-            </div>
-          </div>
-        `
-      }
-    } catch (error) {
-      console.error('Failed to get database statistics:', error)
-    }
-  }
-
-  showDatabaseStatus(message, type = 'info') {
-    const colors = {
-      loading: 'bg-yellow-50 border-yellow-400 text-yellow-700',
-      success: 'bg-green-50 border-green-400 text-green-700',
-      error: 'bg-red-50 border-red-400 text-red-700',
-      warning: 'bg-orange-50 border-orange-400 text-orange-700',
-      info: 'bg-blue-50 border-blue-400 text-blue-700'
-    }
-    
-    // Update status in UI if element exists
-    const statusContainer = document.getElementById('database-status')
-    if (statusContainer) {
-      statusContainer.innerHTML = `
-        <div class="p-3 rounded border-l-4 ${colors[type] || colors.info}">
-          <div class="text-sm">${message}</div>
-        </div>
-      `
-    }
-    
-    console.log(`Database Status [${type}]: ${message}`)
-  }
-
-  setupFallbackSampleData() {
-    // Fallback to hardcoded data if AgentDB fails
+  setupSampleData() {
+    // Create realistic survey response data
     this.sampleData = [
       { respondentId: 1, Q1: "26-35", Q2: "Daily", Q4: "Very Satisfied", department: "Engineering", joinDate: "2023-01-15" },
       { respondentId: 2, Q1: "18-25", Q2: "Weekly", Q4: "Satisfied", department: "Marketing", joinDate: "2023-03-20" },
@@ -289,6 +194,11 @@ export default class extends Controller {
     }
 
     if (this.hasFilterDisplayTarget) {
+      // Generate the SQL statement that would produce this filter
+      const generatedSQL = this.generateSQLFromFilter(filter.expression);
+      console.log('Generated SQL:', generatedSQL);
+      console.log('Filter expression for SQL generation:', filter.expression);
+      
       this.filterDisplayTarget.innerHTML = `
         <h3>Human-Readable Filter</h3>
         <div class="bg-green-50 p-4 rounded border-l-4 border-green-400">
@@ -301,7 +211,19 @@ export default class extends Controller {
             ${this.renderSelectedValues(filter.expression)}
           </div>
         </div>
+        
+        <!-- SQL Preview -->
+        <div class="mt-4 bg-blue-50 p-4 rounded border-l-4 border-blue-400">
+          <h4 class="font-medium text-blue-900 mb-2">🔄 Equivalent SQL Statement</h4>
+          <p class="text-sm text-blue-700 mb-2">This filter would be generated from the following SQL CASE statement:</p>
+          <pre class="bg-white p-3 rounded border text-sm font-mono overflow-auto"><code>${generatedSQL}</code></pre>
+          <p class="text-xs text-blue-600 mt-2">
+            ℹ️ This shows the reverse transformation: from Kendo filter back to SQL
+          </p>
+        </div>
       `
+    } else {
+      console.log('filterDisplayTarget not available');
     }
     
     // Initialize the live demo if available
@@ -331,41 +253,41 @@ export default class extends Controller {
     }
 
     // Wait for Kendo UI to load if it's not immediately available
-    const waitForKendo = () => {
-      if (typeof kendo !== 'undefined') {
-        console.log('Kendo UI is available, proceeding with demo');
-        this.proceedWithDemo(filter, demoFilterContainer, demoGridContainer);
-      } else {
-        console.log('Kendo UI not yet available, waiting...');
-        // Try again after a short delay
-        setTimeout(() => {
-          if (typeof kendo !== 'undefined') {
-            console.log('Kendo UI loaded after delay');
-            this.proceedWithDemo(filter, demoFilterContainer, demoGridContainer);
-          } else {
-            console.error('Kendo UI failed to load');
-            demoFilterContainer.innerHTML = `
-              <div class="text-orange-600 border border-orange-300 rounded p-4">
-                <h4 class="font-semibold">Kendo UI Not Available</h4>
-                <p class="text-sm mt-2">The Kendo UI library is not loading. This could be due to:</p>
-                <ul class="text-sm mt-2 ml-4 list-disc">
-                  <li>Network connectivity issues</li>
-                  <li>CDN unavailability</li>
-                  <li>Licensing restrictions</li>
-                </ul>
-                <p class="text-sm mt-2">Showing simplified demo instead...</p>
-              </div>
-            `;
-            this.createSimpleFilterDemo(filter, demoFilterContainer, demoGridContainer);
-          }
-        }, 2000);
-      }
-    };
-
-    waitForKendo();
+    if (typeof kendo !== 'undefined') {
+      console.log('Kendo UI is available, proceeding with demo');
+      this.proceedWithDemo(filter, demoFilterContainer, demoGridContainer);
+    } else {
+      console.log('Kendo UI not available, showing fallback demo');
+      demoFilterContainer.innerHTML = `
+        <div class="text-orange-600 border border-orange-300 rounded p-4">
+          <h4 class="font-semibold">⚠️ Kendo UI Not Available</h4>
+          <p class="text-sm mt-2">The Kendo UI library failed to load from CDN. This could be due to:</p>
+          <ul class="text-sm mt-2 ml-4 list-disc">
+            <li>Network connectivity issues</li>
+            <li>CDN unavailability or rate limiting</li>
+            <li>Corporate firewall blocking the CDN</li>
+            <li>Ad blockers interfering with script loading</li>
+          </ul>
+          <p class="text-sm mt-2 font-medium">Showing simplified demo with manual filtering instead:</p>
+        </div>
+      `;
+      this.createSimpleFilterDemo(filter, demoFilterContainer, demoGridContainer);
+    }
   }
 
   proceedWithDemo(filter, demoFilterContainer, demoGridContainer) {
+    // Clear existing content and ensure clean containers
+    demoFilterContainer.innerHTML = '';
+    demoGridContainer.innerHTML = '';
+    
+    // Add some styling to ensure proper layout
+    demoFilterContainer.style.minHeight = '200px';
+    demoFilterContainer.style.padding = '1rem';
+    demoFilterContainer.style.backgroundColor = '#ffffff';
+    
+    demoGridContainer.style.minHeight = '400px';
+    demoGridContainer.style.backgroundColor = '#ffffff';
+
     // Create DataSource with proper schema
     const dataSource = new kendo.data.DataSource({
       data: this.sampleData,
@@ -385,19 +307,40 @@ export default class extends Controller {
 
     // Log available Kendo UI components for debugging
     console.log('Available Kendo UI components:', Object.keys($.fn).filter(key => key.startsWith('kendo')));
+    console.log('kendoFilter available:', !!$.fn.kendoFilter);
+    console.log('Demo containers found:', {
+      filter: !!document.getElementById('demo-filter'),
+      grid: !!document.getElementById('demo-grid')
+    });
 
     try {
       // Check if kendoFilter is available
       if (!$.fn.kendoFilter) {
         console.log('kendoFilter not available, using Grid with built-in filtering');
+        demoFilterContainer.innerHTML = `
+          <div class="text-orange-600 border border-orange-300 rounded p-4">
+            <h4 class="font-semibold">⚠️ Kendo Filter Widget Not Available</h4>
+            <p class="text-sm mt-2">The kendoFilter widget is not included in this Kendo UI version.</p>
+            <p class="text-sm mt-1">This usually means:</p>
+            <ul class="text-sm mt-2 ml-4 list-disc">
+              <li>Filter widget requires a commercial license</li>
+              <li>Using Kendo UI Core (free) instead of Kendo UI Professional</li>
+              <li>Filter widget not included in the CDN bundle</li>
+            </ul>
+            <p class="text-sm mt-2 font-medium">Showing Grid with built-in filtering instead:</p>
+          </div>
+        `;
         this.createGridOnlyDemo(filter, demoFilterContainer, demoGridContainer);
         return;
       }
 
-      // Test with a simple filter first to make sure it works
+      // Create the filter widget with better styling
       console.log('Creating Kendo Filter with expression:', JSON.stringify(filter.expression, null, 2));
       
-      const filterWidget = $("#" + demoFilterContainer.id).kendoFilter({
+      // Use jQuery to ensure proper initialization
+      const $filterContainer = $(demoFilterContainer);
+      
+      const filterWidget = $filterContainer.kendoFilter({
         dataSource: dataSource,
         expressionPreview: true,
         applyButton: true,
@@ -410,17 +353,122 @@ export default class extends Controller {
         expression: filter.expression,
         change: (e) => {
           console.log('Filter changed:', e.expression);
+          this.lastKnownExpression = e.expression; // Store the latest expression
           this.updateGridFilter(e.expression);
+          this.updateSQLDisplay(e.expression);
+        },
+        apply: (e) => {
+          console.log('Filter applied via apply event:', e.expression);
+          this.lastKnownExpression = e.expression; // Store the latest expression
+          this.updateGridFilter(e.expression);
+          this.updateSQLDisplay(e.expression);
         }
       }).data('kendoFilter');
 
       // Apply the initial filter
       if (filterWidget) {
         filterWidget.applyFilter();
+        console.log('Filter widget initialized and applied');
+        
+        // Debug: Log available methods and properties
+        console.log('FilterWidget methods and properties:', Object.getOwnPropertyNames(filterWidget));
+        console.log('FilterWidget prototype methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(filterWidget)));
+        console.log('FilterWidget expression type:', typeof filterWidget.expression);
+        console.log('FilterWidget has expression property:', 'expression' in filterWidget);
+        
+        // Initialize the SQL display with the initial filter
+        this.updateSQLDisplay(filter.expression);
+        
+        // Store the expression for later reference
+        this.lastKnownExpression = filter.expression;
+        
+        // Add event listener for Apply button clicks directly
+        setTimeout(() => {
+          const applyButton = $filterContainer.find('.k-filter-apply');
+          if (applyButton.length > 0) {
+            console.log('Found apply button, attaching click handler');
+            applyButton.on('click', () => {
+              console.log('Apply button clicked directly');
+              setTimeout(() => {
+                try {
+                  // Try different methods to get the current expression
+                  let currentExpression;
+                  
+                  if (typeof filterWidget.expression === 'function') {
+                    currentExpression = filterWidget.expression();
+                  } else if (filterWidget.expression) {
+                    currentExpression = filterWidget.expression;
+                  } else if (filterWidget.dataSource && filterWidget.dataSource.filter) {
+                    currentExpression = filterWidget.dataSource.filter();
+                  } else {
+                    console.log('Using last known expression as fallback');
+                    currentExpression = this.lastKnownExpression;
+                  }
+                  
+                  console.log('Current filter expression after apply:', currentExpression);
+                  this.updateSQLDisplay(currentExpression);
+                } catch (error) {
+                  console.error('Error getting filter expression:', error);
+                  // Fallback to stored expression
+                  this.updateSQLDisplay(this.lastKnownExpression);
+                }
+              }, 100);
+            });
+          } else {
+            console.log('Apply button not found, searching for .k-button');
+            const buttons = $filterContainer.find('.k-button');
+            console.log('Found buttons:', buttons.length);
+            buttons.each((index, button) => {
+              const $btn = $(button);
+              console.log(`Button ${index}:`, $btn.text(), $btn.attr('class'));
+              if ($btn.text().toLowerCase().includes('apply') || $btn.hasClass('k-filter-apply')) {
+                $btn.on('click', () => {
+                  console.log('Apply button clicked (found via search)');
+                  setTimeout(() => {
+                    try {
+                      // Try different methods to get the current expression
+                      let currentExpression;
+                      
+                      if (typeof filterWidget.expression === 'function') {
+                        currentExpression = filterWidget.expression();
+                      } else if (filterWidget.expression) {
+                        currentExpression = filterWidget.expression;
+                      } else if (filterWidget.dataSource && filterWidget.dataSource.filter) {
+                        currentExpression = filterWidget.dataSource.filter();
+                      } else {
+                        console.log('Using last known expression as fallback');
+                        currentExpression = this.lastKnownExpression;
+                      }
+                      
+                      console.log('Current filter expression after apply:', currentExpression);
+                      this.updateSQLDisplay(currentExpression);
+                    } catch (error) {
+                      console.error('Error getting filter expression:', error);
+                      // Fallback to stored expression
+                      this.updateSQLDisplay(this.lastKnownExpression);
+                    }
+                  }, 100);
+                });
+              }
+            });
+          }
+        }, 500);
+        
+        // Add some custom styling after initialization
+        setTimeout(() => {
+          $filterContainer.find('.k-filter').css({
+            'background': '#ffffff',
+            'border': '1px solid #d1d5db',
+            'border-radius': '0.5rem',
+            'padding': '1rem'
+          });
+        }, 100);
       }
 
-      // Create grid with shared datasource
-      const gridWidget = $("#" + demoGridContainer.id).kendoGrid({
+      // Create grid with shared datasource and better styling
+      const $gridContainer = $(demoGridContainer);
+      
+      const gridWidget = $gridContainer.kendoGrid({
         dataSource: dataSource,
         columns: [
           { field: 'respondentId', title: 'ID', width: 80 },
@@ -444,21 +492,54 @@ export default class extends Controller {
       this.sharedDataSource = dataSource;
 
       console.log('Live demo initialized successfully with proper Kendo Filter');
+      
+      // Ensure proper styling after widgets are rendered
+      setTimeout(() => {
+        $gridContainer.find('.k-grid').css({
+          'border': '1px solid #d1d5db',
+          'border-radius': '0.5rem',
+          'overflow': 'hidden'
+        });
+      }, 100);
+      
     } catch (error) {
       console.error('Error initializing live demo:', error);
-      demoFilterContainer.innerHTML = '<div class="text-red-600">Error initializing demo: ' + error.message + '</div>';
+      demoFilterContainer.innerHTML = '<div class="text-red-600 p-4">Error initializing demo: ' + error.message + '</div>';
     }
   }
 
-  async createSimpleFilterDemo(filter, demoFilterContainer, demoGridContainer) {
-    // Create a visual representation of the filter instead of the widget
+  testKendoAvailability(container) {
+    // Test if we can create a simple Kendo widget first
+    try {
+      // Try creating a simple button to test Kendo UI
+      const testDiv = $('<div>').appendTo('body');
+      const testButton = testDiv.kendoButton({ content: "Test" });
+      if (testButton.data('kendoButton')) {
+        console.log('Kendo UI widgets working - Button created successfully');
+        testDiv.remove();
+      }
+    } catch (error) {
+      console.error('Basic Kendo UI test failed:', error);
+      container.innerHTML = `
+        <div class="text-red-600 border border-red-300 rounded p-4">
+          <h4 class="font-semibold">Kendo UI Test Failed</h4>
+          <p class="text-sm mt-2">Basic Kendo UI widgets are not working: ${error.message}</p>
+        </div>
+      `;
+    }
+  }
+
+  createSimpleFilterDemo(filter, demoFilterContainer, demoGridContainer) {
+    // Create a more interactive demo even without Kendo UI
     demoFilterContainer.innerHTML = `
       <div class="border border-gray-300 rounded p-4 bg-green-50">
         <h4 class="font-semibold mb-2">✅ SQL-to-Filter Translation Working</h4>
         <div class="text-sm space-y-2">
           <div><strong>Original SQL:</strong> <code class="bg-white px-2 py-1 rounded">${this.sqlInputTarget.value}</code></div>
           <div><strong>Parsed Expression:</strong> ${filter.expression.displayText || 'Complex filter applied'}</div>
-          <div><strong>Data Source:</strong> ${this.agentDb && this.agentDb.isInitialized ? 'AgentDB (Live Database)' : 'Local Fallback Data'}</div>
+          <div><strong>Kendo Filter JSON:</strong> 
+            <pre class="mt-1 p-2 bg-white rounded text-xs overflow-auto">${JSON.stringify(filter.expression, null, 2)}</pre>
+          </div>
           <div class="text-xs text-gray-600 mt-2">
             ✨ Your SQL parsing and Kendo filter conversion is working perfectly! 
             The table below shows filtered data using your parsed expression.
@@ -468,7 +549,7 @@ export default class extends Controller {
     `;
 
     // Apply the filter to sample data and show results
-    const filteredData = await this.applyFilterToData(filter.expression);
+    const filteredData = this.applyFilterToData(filter.expression);
     
     // Create an enhanced table with better styling
     const tableHTML = `
@@ -521,11 +602,6 @@ export default class extends Controller {
             <button onclick="window.reapplyFilter()" class="px-3 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600">
               Re-apply SQL Filter (${filteredData.length} records)
             </button>
-            ${this.agentDb && this.agentDb.isInitialized ? `
-              <button onclick="window.downloadDatabase()" class="px-3 py-1 bg-purple-500 text-white rounded text-sm hover:bg-purple-600">
-                📥 Download Database
-              </button>
-            ` : ''}
           </div>
         </div>
       </div>
@@ -534,31 +610,35 @@ export default class extends Controller {
     demoGridContainer.innerHTML = tableHTML;
     
     // Add global functions for the buttons
-    window.showAllData = async () => {
-      await this.rebuildTable(this.sampleData, "All Data");
+    window.showAllData = () => {
+      const allDataTable = tableHTML.replace(`(${filteredData.length} of ${this.sampleData.length} records)`, `(${this.sampleData.length} records - All Data)`);
+      const newTableHTML = allDataTable.replace(
+        filteredData.length > 0 ? filteredData.map(row => `<tr class="hover:bg-gray-50">`) : [''],
+        this.sampleData.map(row => `
+          <tr class="hover:bg-gray-50">
+            <td class="border border-gray-300 px-3 py-2">${row.respondentId}</td>
+            <td class="border border-gray-300 px-3 py-2">${row.Q1}</td>
+            <td class="border border-gray-300 px-3 py-2">${row.Q2}</td>
+            <td class="border border-gray-300 px-3 py-2 font-medium">${row.Q4}</td>
+            <td class="border border-gray-300 px-3 py-2">${row.department}</td>
+            <td class="border border-gray-300 px-3 py-2">${row.joinDate}</td>
+          </tr>
+        `)
+      );
+      
+      // Simpler approach - just rebuild with all data
+      this.rebuildTable(this.sampleData, "All Data");
     };
     
-    window.reapplyFilter = async () => {
-      const filteredData = await this.applyFilterToData(filter.expression);
-      await this.rebuildTable(filteredData, filter.expression.displayText);
-    };
-    
-    window.downloadDatabase = async () => {
-      if (this.agentDb && this.agentDb.isInitialized) {
-        try {
-          const downloadInfo = await this.agentDb.getDownloadUrl();
-          window.open(downloadInfo.downloadUrl, '_blank');
-        } catch (error) {
-          alert('Failed to get database download: ' + error.message);
-        }
-      }
+    window.reapplyFilter = () => {
+      this.rebuildTable(filteredData, filter.expression.displayText);
     };
     
     // Store reference for rebuilding
     this.currentFilter = filter;
   }
 
-  async rebuildTable(data, filterDesc) {
+  rebuildTable(data, filterDesc) {
     const demoGridContainer = document.getElementById('demo-grid');
     if (!demoGridContainer) return;
     
@@ -612,60 +692,53 @@ export default class extends Controller {
             <button onclick="window.reapplyFilter()" class="px-3 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600">
               Re-apply SQL Filter
             </button>
-            ${this.agentDb && this.agentDb.isInitialized ? `
-              <button onclick="window.addSampleRecord()" class="px-3 py-1 bg-indigo-500 text-white rounded text-sm hover:bg-indigo-600">
-                ➕ Add Record
-              </button>
-              <button onclick="window.downloadDatabase()" class="px-3 py-1 bg-purple-500 text-white rounded text-sm hover:bg-purple-600">
-                📥 Download DB
-              </button>
-            ` : ''}
           </div>
         </div>
       </div>
     `;
     
     demoGridContainer.innerHTML = tableHTML;
-    
-    // Add new global function for adding records
-    window.addSampleRecord = async () => {
-      if (this.agentDb && this.agentDb.isInitialized) {
-        try {
-          const newRecord = {
-            respondentId: this.sampleData.length + 1,
-            Q1: "26-35",
-            Q2: "Daily", 
-            Q4: "Very Satisfied",
-            department: "IT",
-            joinDate: new Date().toISOString().split('T')[0]
-          };
-          
-          await this.agentDb.addResponse(newRecord);
-          
-          // Reload data
-          await this.loadSampleDataFromDatabase();
-          
-          // Refresh display
-          await this.rebuildTable(this.sampleData, "All Data (Refreshed)");
-          
-          alert('New record added successfully!');
-        } catch (error) {
-          alert('Failed to add record: ' + error.message);
-        }
-      }
-    };
   }
 
   createGridOnlyDemo(filter, demoFilterContainer, demoGridContainer) {
-    // Show filter configuration
+    // Show filter configuration with more interactivity
     demoFilterContainer.innerHTML = `
       <div class="border border-gray-300 rounded p-4 bg-blue-50">
-        <h4 class="font-semibold mb-2">🔍 Applied Filter</h4>
-        <div class="text-sm">
-          <strong>Filter Expression:</strong> ${filter.expression.displayText || 'Complex filter applied'}
+        <h4 class="font-semibold mb-2">🔍 SQL-to-Kendo Filter Translation</h4>
+        <div class="text-sm space-y-2">
+          <div><strong>Parsed Expression:</strong> ${filter.expression.displayText || 'Complex filter applied'}</div>
+          <div><strong>Kendo Filter Logic:</strong> 
+            <pre class="mt-1 p-2 bg-white rounded text-xs overflow-auto">${JSON.stringify(filter.expression, null, 2)}</pre>
+          </div>
+          <div class="text-xs text-gray-600 mt-2">
+            ℹ️ The Kendo Grid below is filtered using your parsed SQL expression. 
+            Try the different sample buttons above to see how different SQL statements translate to filters.
+          </div>
         </div>
-        <div class="text-xs text-gray-600 mt-2">
-          The Kendo Grid below shows data filtered according to your SQL expression.
+        
+        <!-- Add some manual filter controls -->
+        <div class="mt-4 pt-4 border-t border-gray-200">
+          <h5 class="font-medium mb-2">Manual Filter Test:</h5>
+          <div class="flex gap-2 items-center">
+            <select id="manual-field" class="border rounded px-2 py-1 text-sm">
+              <option value="Q4">Satisfaction</option>
+              <option value="Q1">Age Group</option>
+              <option value="Q2">Usage Frequency</option>
+              <option value="department">Department</option>
+            </select>
+            <select id="manual-operator" class="border rounded px-2 py-1 text-sm">
+              <option value="eq">Equals</option>
+              <option value="contains">Contains</option>
+              <option value="neq">Not Equal</option>
+            </select>
+            <input id="manual-value" type="text" placeholder="Value" class="border rounded px-2 py-1 text-sm">
+            <button onclick="window.sqlParserController.applyManualFilter()" class="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">
+              Apply Filter
+            </button>
+            <button onclick="window.sqlParserController.clearManualFilter()" class="px-3 py-1 bg-gray-500 text-white rounded text-sm hover:bg-gray-600">
+              Clear
+            </button>
+          </div>
         </div>
       </div>
     `;
@@ -700,6 +773,10 @@ export default class extends Controller {
       }).data('kendoGrid');
 
       this.demoGrid = gridWidget;
+      
+      // Store reference globally for manual filter controls
+      window.sqlParserController = this;
+      
       console.log('Grid-only demo initialized successfully');
     } catch (error) {
       console.error('Error creating grid demo:', error);
@@ -707,22 +784,41 @@ export default class extends Controller {
     }
   }
 
-  async applyFilterToData(expression) {
-    // Try to use AgentDB for filtering if available
-    if (this.agentDb && this.agentDb.isInitialized) {
-      try {
-        console.log('Applying filter using AgentDB...')
-        const filteredData = await this.agentDb.applyKendoFilter(expression)
-        console.log(`AgentDB returned ${filteredData.length} filtered records`)
-        return filteredData
-      } catch (error) {
-        console.error('AgentDB filtering failed, falling back to local filtering:', error)
-        // Fall through to local filtering
-      }
+  applyManualFilter() {
+    const field = document.getElementById('manual-field').value;
+    const operator = document.getElementById('manual-operator').value;
+    const value = document.getElementById('manual-value').value;
+    
+    if (!value.trim()) {
+      alert('Please enter a value to filter by');
+      return;
     }
+    
+    const manualFilter = {
+      logic: 'and',
+      filters: [{
+        field: field,
+        operator: operator,
+        value: value
+      }]
+    };
+    
+    if (this.demoGrid) {
+      this.demoGrid.dataSource.filter(manualFilter);
+      console.log('Applied manual filter:', manualFilter);
+    }
+  }
 
-    // Fallback to local filtering
-    console.log('Using local data filtering...')
+  clearManualFilter() {
+    if (this.demoGrid) {
+      this.demoGrid.dataSource.filter({});
+      document.getElementById('manual-value').value = '';
+      console.log('Cleared manual filter');
+    }
+  }
+
+  applyFilterToData(expression) {
+    // Simple filter application based on our expression structure
     if (!expression || !expression.filters) {
       return this.sampleData;
     }
@@ -763,6 +859,86 @@ export default class extends Controller {
     }
   }
 
+  updateSQLDisplay(expression) {
+    // Update the SQL display with the current filter expression
+    const sqlContainer = document.getElementById('demo-sql-display');
+    if (!sqlContainer) {
+      console.log('SQL container not found');
+      return; // SQL display container not available
+    }
+
+    try {
+      const generatedSQL = this.generateSQLFromFilter(expression);
+      console.log('Generated SQL for display:', generatedSQL);
+      
+      sqlContainer.innerHTML = `
+        <div class="bg-blue-50 p-4 rounded border-l-4 border-blue-400">
+          <h4 class="font-medium text-blue-900 mb-2">🔄 Current Filter as SQL</h4>
+          <p class="text-sm text-blue-700 mb-2">This filter expression as SQL CASE statement:</p>
+          <pre class="bg-white p-3 rounded border text-sm font-mono overflow-auto"><code>${generatedSQL}</code></pre>
+          <p class="text-xs text-blue-600 mt-2">
+            ✨ SQL updates automatically as you modify the filter above
+          </p>
+          <div class="mt-3 pt-3 border-t border-blue-200">
+            <button onclick="window.sqlParserController.refreshSQL()" class="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">
+              🔄 Refresh SQL
+            </button>
+            <span class="text-xs text-blue-600 ml-2">Click to manually update SQL if automatic updates aren't working</span>
+          </div>
+        </div>
+      `;
+      
+      // Store reference globally for manual refresh
+      window.sqlParserController = this;
+      
+    } catch (error) {
+      console.error('Error generating SQL display:', error);
+      sqlContainer.innerHTML = `
+        <div class="bg-red-50 p-4 rounded border-l-4 border-red-400">
+          <h4 class="font-medium text-red-900 mb-2">⚠️ SQL Generation Error</h4>
+          <p class="text-sm text-red-700">Error generating SQL: ${error.message}</p>
+        </div>
+      `;
+    }
+  }
+
+  refreshSQL() {
+    // Manual refresh method for the SQL display
+    console.log('Manual SQL refresh triggered');
+    if (this.demoFilter) {
+      try {
+        // Try different methods to get the current expression
+        let currentExpression;
+        
+        if (typeof this.demoFilter.expression === 'function') {
+          currentExpression = this.demoFilter.expression();
+        } else if (this.demoFilter.expression) {
+          currentExpression = this.demoFilter.expression;
+        } else if (this.demoFilter.dataSource && this.demoFilter.dataSource.filter) {
+          currentExpression = this.demoFilter.dataSource.filter();
+        } else {
+          console.log('Using last known expression as fallback');
+          currentExpression = this.lastKnownExpression;
+        }
+        
+        console.log('Current filter expression from widget:', currentExpression);
+        this.updateSQLDisplay(currentExpression);
+      } catch (error) {
+        console.error('Error getting current expression:', error);
+        // Fallback to stored expression
+        if (this.lastKnownExpression) {
+          this.updateSQLDisplay(this.lastKnownExpression);
+        }
+      }
+    } else {
+      console.log('No demo filter available for refresh');
+      // Use the last known expression
+      if (this.lastKnownExpression) {
+        this.updateSQLDisplay(this.lastKnownExpression);
+      }
+    }
+  }
+
   renderSelectedValues(filterExpression) {
     // Extract values from the filter expression
     const values = filterExpression.filters.map(f => f.value);
@@ -770,6 +946,99 @@ export default class extends Controller {
     return values.map(value => 
       `<span class="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm mr-1 mt-1">${value}</span>`
     ).join('');
+  }
+
+  generateSQLFromFilter(filterExpression) {
+    // Convert the Kendo filter expression back to SQL CASE statement format
+    console.log('generateSQLFromFilter called with:', JSON.stringify(filterExpression, null, 2));
+    
+    if (!filterExpression || !filterExpression.filters || filterExpression.filters.length === 0) {
+      console.log('No filters found, returning default SQL');
+      return "case when [field] = value then 1 else NULL end";
+    }
+
+    const field = filterExpression.filters[0].field;
+    const operator = filterExpression.filters[0].operator;
+    const logic = filterExpression.logic || 'and';
+
+    console.log('Filter details:', { field, operator, logic, filterCount: filterExpression.filters.length });
+
+    // Handle different operators and logic combinations
+    if (filterExpression.filters.length === 1) {
+      const filter = filterExpression.filters[0];
+      
+      switch (filter.operator) {
+        case 'eq':
+          return `case when [${filter.field}] = ${this.formatSQLValue(filter.value)} then 1 else NULL end`;
+        case 'neq':
+          return `case when [${filter.field}] <> ${this.formatSQLValue(filter.value)} then 1 else NULL end`;
+        case 'gt':
+          return `case when [${filter.field}] > ${this.formatSQLValue(filter.value)} then 1 else NULL end`;
+        case 'gte':
+          return `case when [${filter.field}] >= ${this.formatSQLValue(filter.value)} then 1 else NULL end`;
+        case 'lt':
+          return `case when [${filter.field}] < ${this.formatSQLValue(filter.value)} then 1 else NULL end`;
+        case 'lte':
+          return `case when [${filter.field}] <= ${this.formatSQLValue(filter.value)} then 1 else NULL end`;
+        case 'contains':
+          return `case when [${filter.field}] like '%${filter.value}%' then 1 else NULL end`;
+        default:
+          return `case when [${filter.field}] = ${this.formatSQLValue(filter.value)} then 1 else NULL end`;
+      }
+    } else {
+      // Handle multiple filters (IN clause or complex conditions)
+      const firstField = filterExpression.filters[0].field;
+      const allSameField = filterExpression.filters.every(f => f.field === firstField);
+      const allEqualOperator = filterExpression.filters.every(f => f.operator === 'eq');
+
+      if (allSameField && allEqualOperator && logic === 'or') {
+        // Convert to IN clause
+        const values = filterExpression.filters.map(f => this.formatSQLValue(f.value)).join(', ');
+        return `case when [${firstField}] in (${values}) then 1 else NULL end`;
+      } else {
+        // Build complex condition
+        const conditions = filterExpression.filters.map(filter => {
+          switch (filter.operator) {
+            case 'eq':
+              return `[${filter.field}] = ${this.formatSQLValue(filter.value)}`;
+            case 'neq':
+              return `[${filter.field}] <> ${this.formatSQLValue(filter.value)}`;
+            case 'gt':
+              return `[${filter.field}] > ${this.formatSQLValue(filter.value)}`;
+            case 'gte':
+              return `[${filter.field}] >= ${this.formatSQLValue(filter.value)}`;
+            case 'lt':
+              return `[${filter.field}] < ${this.formatSQLValue(filter.value)}`;
+            case 'lte':
+              return `[${filter.field}] <= ${this.formatSQLValue(filter.value)}`;
+            case 'contains':
+              return `[${filter.field}] like '%${filter.value}%'`;
+            default:
+              return `[${filter.field}] = ${this.formatSQLValue(filter.value)}`;
+          }
+        }).join(` ${logic.toUpperCase()} `);
+        
+        return `case when ${conditions} then 1 else NULL end`;
+      }
+    }
+  }
+
+  formatSQLValue(value) {
+    // Format values for SQL based on type
+    if (typeof value === 'string') {
+      // If it looks like a numeric string, don't quote it
+      if (/^\d+$/.test(value)) {
+        return value;
+      }
+      // Quote string values
+      return `'${value.replace(/'/g, "''")}'`;
+    } else if (typeof value === 'number') {
+      return value.toString();
+    } else if (value === null || value === undefined) {
+      return 'NULL';
+    } else {
+      return `'${value.toString().replace(/'/g, "''")}'`;
+    }
   }
 
   showError(message) {
