@@ -74,6 +74,44 @@ npm run dev
 
 4. Open your browser and navigate to `http://localhost:5173`
 
+## 🗄️ Database Setup (Optional)
+
+The application currently runs in **Demo Mode** with local sample data. To use AgentDB for cloud database functionality:
+
+### AgentDB Configuration
+
+1. **Create AgentDB Account**:
+   - Visit [agentdb.dev](https://agentdb.dev/)
+   - Sign up for an account
+   - Create a new database project
+
+2. **Get API Credentials**:
+   - Copy your API key from the AgentDB dashboard
+   - Note the correct API endpoints for your database
+
+3. **Update Service Configuration**:
+   - Open `src/services/AgentDbService.js`
+   - Update the `apiKey` with your AgentDB API key
+   - Verify the `baseUrl` and endpoint formats
+   - Uncomment the API testing code in the `initialize()` method
+
+4. **Test Connection**:
+   - Restart the development server
+   - Check the browser console for connection status
+   - The app will automatically fall back to demo mode if AgentDB is unavailable
+
+### Demo Mode vs. AgentDB Mode
+
+| Feature | Demo Mode | AgentDB Mode |
+|---------|-----------|--------------|
+| Sample Data | ✅ 15 local records | ✅ Cloud database |
+| Filtering | ✅ Local filtering | ✅ Server-side SQL |
+| Statistics | ✅ Calculated locally | ✅ Real-time from DB |
+| Persistence | ❌ Session only | ✅ Permanent storage |
+| Collaboration | ❌ Local only | ✅ Shared access |
+
+> **Note**: The application works fully in Demo Mode. AgentDB integration is optional for production deployments.
+
 ## 💡 How It Works
 
 ### 1. SQL Parsing

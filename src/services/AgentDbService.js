@@ -1,6 +1,16 @@
 /**
  * AgentDB Service for managing survey data
  * Provides database operations for the SQL parser application
+ * 
+ * SETUP REQUIRED:
+ * To use AgentDB instead of demo mode, you need to:
+ * 1. Visit https://agentdb.dev/ and create an account
+ * 2. Create a new database project
+ * 3. Get the correct API endpoints and authentication
+ * 4. Update the API key and endpoints in this service
+ * 5. Uncomment the API testing code in the initialize() method
+ * 
+ * Currently running in DEMO MODE with local sample data.
  */
 export class AgentDbService {
   constructor(mockMode = false) {
@@ -57,6 +67,13 @@ export class AgentDbService {
         return;
       }
 
+      // For now, let's skip the API testing and go straight to demo mode
+      // until we can properly configure AgentDB
+      console.log('⚠️ AgentDB API endpoints are not yet configured - using demo mode');
+      throw new Error('AgentDB API configuration pending - using demo mode for now');
+
+      // TODO: Uncomment this when AgentDB is properly set up
+      /*
       // Test if the API supports the operations we need
       const apiAvailable = await this.testApiConnection();
       
@@ -66,6 +83,7 @@ export class AgentDbService {
 
       // Skip database creation and go straight to table creation
       console.log('✅ API endpoints available, proceeding with table setup...');
+      */
 
       // Create the survey responses table
       await this.executeSQL({
