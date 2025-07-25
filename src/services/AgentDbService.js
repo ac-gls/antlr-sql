@@ -166,6 +166,20 @@ export class AgentDbService {
       console.log('Executing SQL:', query.sql);
       const result = await this.connection.execute(query);
       console.log('SQL execution successful');
+      
+      // The AgentDB SDK returns data in format: 
+      // {results: [{rows: [...actual_data...], totalRows: n, offset: 0, limit: 100, changes: 0}]}
+      // We need to extract the actual data from result.results[0].rows
+      if (result && Array.isArray(result.results) && result.results.length > 0) {
+        const firstResult = result.results[0];
+        if (firstResult && Array.isArray(firstResult.rows)) {
+          return firstResult.rows;
+        }
+        // Fallback to the result object itself if no rows property
+        return firstResult || [];
+      }
+      
+      // Final fallback for other response formats
       return result || [];
     } catch (error) {
       console.error('SQL execution failed:', error);

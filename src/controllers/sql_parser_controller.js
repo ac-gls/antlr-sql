@@ -34,11 +34,6 @@ export default class extends Controller {
     if (this.hasSqlInputTarget) {
       this.sqlInputTarget.value = "case when [Q4] in (1, 2, 3) then 1 else NULL end"
       console.log("Default SQL set:", this.sqlInputTarget.value)
-      
-      // Auto-parse the default SQL to show example after data loads
-      setTimeout(() => {
-        this.parseSQL()
-      }, 1000) // Increased timeout to allow for database initialization
     }
   }
 
@@ -65,6 +60,12 @@ export default class extends Controller {
       // Display database statistics
       await this.displayDatabaseStats()
       
+      // Auto-parse the default SQL to show example now that data is loaded
+      if (this.hasSqlInputTarget && this.sqlInputTarget.value.trim()) {
+        console.log('Auto-parsing SQL with loaded data...');
+        this.parseSQL();
+      }
+      
     } catch (error) {
       console.error('Failed to initialize AgentDB:', error)
       
@@ -90,6 +91,14 @@ export default class extends Controller {
         this.showDatabaseStatus('🎯 Demo Mode: Using local sample data (15 survey responses)', 'info')
         this.displayMockStatistics()
       }, 2000)
+      
+      // Auto-parse the default SQL to show example with fallback data
+      if (this.hasSqlInputTarget && this.sqlInputTarget.value.trim()) {
+        console.log('Auto-parsing SQL with fallback data...');
+        setTimeout(() => {
+          this.parseSQL();
+        }, 500);
+      }
     }
   }
 
@@ -103,9 +112,23 @@ export default class extends Controller {
         document.getElementById('sample-data-display').textContent = 
           JSON.stringify(this.sampleData.slice(0, 3), null, 2);
       }
+      
+      // Update any existing grid data sources with the new data
+      this.updateGridDataSources();
+      
     } catch (error) {
       console.error('Failed to load data from AgentDB:', error)
       throw error
+    }
+  }
+
+  /**
+   * Update existing grid data sources with the loaded sample data
+   */
+  updateGridDataSources() {
+    if (this.sharedDataSource && this.sampleData.length > 0) {
+      console.log('Updating shared data source with loaded data');
+      this.sharedDataSource.data(this.sampleData);
     }
   }
 
