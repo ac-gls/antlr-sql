@@ -1,27 +1,23 @@
+import { DatabaseService } from "@agentdb/sdk";
+
 /**
- * AgentDB Service for managing survey data
+ * AgentDB Service for managing survey data using the official AgentDB SDK
  * Provides database operations for the SQL parser application
- * 
- * SETUP REQUIRED:
- * To use AgentDB instead of demo mode, you need to:
- * 1. Visit https://agentdb.dev/ and create an account
- * 2. Create a new database project
- * 3. Get the correct API endpoints and authentication
- * 4. Update the API key and endpoints in this service
- * 5. Uncomment the API testing code in the initialize() method
- * 
- * Currently running in DEMO MODE with local sample data.
  */
 export class AgentDbService {
   constructor(mockMode = false) {
     this.apiKey = 'agentdb_d02f736e6d7468d678c98241d32ebb90e59be24be7b12dedc752a8dc3d91153f';
     this.baseUrl = 'https://api.agentdb.dev';
     this.databaseToken = this.generateDatabaseToken();
-    this.databaseName = 'survey_responses_db';
+    this.databaseName = 'stim-antlr'; // Your actual database name
     this.databaseType = 'sqlite';
     this.isInitialized = false;
     this.mockMode = mockMode;
     this.mockData = []; // For mock mode
+    
+    // Initialize AgentDB SDK
+    this.agentdb = null;
+    this.connection = null;
   }
 
   /**
@@ -47,7 +43,7 @@ export class AgentDbService {
   }
 
   /**
-   * Initialize the database and create tables
+   * Initialize the database using AgentDB SDK
    */
   async initialize() {
     if (this.isInitialized) {
@@ -55,8 +51,8 @@ export class AgentDbService {
     }
 
     try {
-      console.log('Initializing AgentDB connection...');
-      console.log('Database Token:', this.databaseToken);
+      console.log('Initializing AgentDB connection with SDK...');
+      console.log('Database Name:', this.databaseName);
       console.log('Mock Mode:', this.mockMode);
 
       if (this.mockMode) {
@@ -67,26 +63,26 @@ export class AgentDbService {
         return;
       }
 
-      // For now, let's skip the API testing and go straight to demo mode
-      // until we can properly configure AgentDB
-      console.log('⚠️ AgentDB API endpoints are not yet configured - using demo mode');
-      throw new Error('AgentDB API configuration pending - using demo mode for now');
-
-      // TODO: Uncomment this when AgentDB is properly set up
-      /*
-      // Test if the API supports the operations we need
-      const apiAvailable = await this.testApiConnection();
+      // Initialize AgentDB SDK
+      console.log('Creating AgentDB service instance...');
+      this.agentdb = new DatabaseService(this.baseUrl, this.apiKey, true);
       
-      if (!apiAvailable) {
-        throw new Error('AgentDB API does not support required operations - falling back to demo mode');
-      }
+      // Generate a database token for your existing database
+      // Since you created "stim-antlr", we'll use that as the database name
+      console.log('Connecting to existing database:', this.databaseName);
+      this.connection = this.agentdb.connect(this.databaseToken, this.databaseName, this.databaseType);
 
-      // Skip database creation and go straight to table creation
-      console.log('✅ API endpoints available, proceeding with table setup...');
-      */
+      // Test the connection with a simple query
+      console.log('Testing AgentDB connection...');
+      await this.connection.execute({
+        sql: 'SELECT 1 as test'
+      });
+      
+      console.log('✅ AgentDB connection successful!');
 
       // Create the survey responses table
-      await this.executeSQL({
+      console.log('Creating survey_responses table...');
+      await this.connection.execute({
         sql: `CREATE TABLE IF NOT EXISTS survey_responses (
           respondentId INTEGER PRIMARY KEY,
           Q1 TEXT NOT NULL,
@@ -98,17 +94,23 @@ export class AgentDbService {
         )`
       });
 
-      // Insert sample data if table is empty
-      const existingData = await this.executeSQL({
+      // Check if we need to populate sample data
+      console.log('Checking for existing data...');
+      const existingData = await this.connection.execute({
         sql: 'SELECT COUNT(*) as count FROM survey_responses'
       });
 
-      if (existingData.length === 0 || existingData[0].count === 0) {
+      const recordCount = existingData[0]?.count || 0;
+      console.log(`Found ${recordCount} existing records`);
+
+      if (recordCount === 0) {
+        console.log('Populating with sample data...');
         await this.populateSampleData();
       }
 
       this.isInitialized = true;
-      console.log('AgentDB initialized successfully');
+      console.log('✅ AgentDB initialized successfully with SDK!');
+      
     } catch (error) {
       console.error('Failed to initialize AgentDB:', error);
       
@@ -120,62 +122,6 @@ export class AgentDbService {
       
       // Re-throw with more specific error for the controller to handle
       throw new Error(`AgentDB connection failed: ${error.message}. Using mock mode.`);
-    }
-  }
-
-  /**
-   * Test if the AgentDB API is available with the specific endpoints we need
-   */
-  async testApiConnection() {
-    try {
-      console.log('Testing AgentDB API connection...');
-      
-      // Instead of testing POST endpoints (which might create unwanted side effects),
-      // let's test if we can execute a simple, safe SQL query
-      const testEndpoints = [
-        `${this.baseUrl}/execute`,
-        `${this.baseUrl}/database/execute`,
-        `${this.baseUrl}/databases/${this.databaseToken}/execute`,
-        `${this.baseUrl}/v1/database/${this.databaseToken}/execute`,
-        `${this.baseUrl}/api/database/${this.databaseToken}/execute`
-      ];
-      
-      for (const url of testEndpoints) {
-        try {
-          console.log(`Testing SQL execution endpoint: ${url}`);
-          
-          // Try a simple SELECT query that should work on any SQL database
-          const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${this.apiKey}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              sql: 'SELECT 1 as test',
-              params: []
-            })
-          });
-          
-          // If we get a non-404 response, this endpoint exists
-          if (response.status !== 404) {
-            console.log(`✅ Found working SQL endpoint: ${url} (status: ${response.status})`);
-            return true;
-          } else {
-            console.log(`✗ Endpoint not found: ${url}`);
-          }
-          
-        } catch (error) {
-          console.log(`✗ Endpoint test failed: ${url} - ${error.message}`);
-        }
-      }
-      
-      console.log('❌ No working AgentDB SQL endpoints found');
-      return false;
-      
-    } catch (error) {
-      console.log('❌ AgentDB API connection test failed:', error.message);
-      return false;
     }
   }
 
@@ -204,105 +150,31 @@ export class AgentDbService {
   }
 
   /**
-   * Create or connect to the database (optional operation)
-   */
-  async createDatabase() {
-    try {
-      console.log('Attempting optional database creation/connection...');
-      
-      // Try different API endpoint formats based on the documentation
-      const createUrl = `${this.baseUrl}/database`;
-      
-      const response = await fetch(createUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`,
-          'X-API-Key': this.apiKey
-        },
-        body: JSON.stringify({
-          token: this.databaseToken,
-          name: this.databaseName,
-          type: this.databaseType
-        })
-      });
-
-      if (response.ok) {
-        console.log('✅ Database created/connected successfully');
-      } else {
-        const responseText = await response.text();
-        console.log(`ℹ️ Database creation response: ${response.status} - ${responseText}`);
-        
-        // 404 just means the endpoint doesn't exist, which is fine
-        if (response.status === 404) {
-          console.log('ℹ️ Database creation endpoint not available - assuming database exists');
-        } else {
-          console.log('ℹ️ Database creation returned non-success status - continuing anyway');
-        }
-      }
-    } catch (error) {
-      console.log('ℹ️ Database creation attempt failed (this is usually fine):', error.message);
-      // Don't throw - database creation is optional
-    }
-  }
-
-  /**
-   * Execute SQL query against the database - try multiple endpoint formats
+   * Execute SQL query using AgentDB SDK
    */
   async executeSQL(query) {
-    const possibleEndpoints = [
-      `${this.baseUrl}/execute`,
-      `${this.baseUrl}/database/execute`,
-      `${this.baseUrl}/databases/${this.databaseToken}/execute`,
-      `${this.baseUrl}/v1/database/${this.databaseToken}/execute`,
-      `${this.baseUrl}/api/database/${this.databaseToken}/execute`
-    ];
-
-    let lastError;
-
-    for (const url of possibleEndpoints) {
-      try {
-        console.log(`Trying endpoint: ${url}`);
-        
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.apiKey}`,
-            'X-API-Key': this.apiKey,
-            'X-Database-Token': this.databaseToken,
-            'X-Database-Name': this.databaseName,
-            'X-Database-Type': this.databaseType
-          },
-          body: JSON.stringify({
-            ...query,
-            token: this.databaseToken,
-            database: this.databaseName,
-            type: this.databaseType
-          })
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          console.log(`Success with endpoint: ${url}`);
-          return result.rows || result.data || result;
-        } else {
-          const errorText = await response.text();
-          console.log(`Endpoint ${url} failed:`, response.status, errorText);
-          lastError = new Error(`${response.status}: ${errorText}`);
-        }
-      } catch (error) {
-        console.log(`Endpoint ${url} error:`, error.message);
-        lastError = error;
-      }
+    if (this.mockMode) {
+      console.log('Mock mode: SQL execution skipped');
+      return [];
     }
 
-    // If all endpoints fail, throw the last error
-    throw new Error(`All AgentDB endpoints failed. Last error: ${lastError.message}`);
+    if (!this.connection) {
+      throw new Error('AgentDB connection not initialized');
+    }
+
+    try {
+      console.log('Executing SQL:', query.sql);
+      const result = await this.connection.execute(query);
+      console.log('SQL execution successful');
+      return result || [];
+    } catch (error) {
+      console.error('SQL execution failed:', error);
+      throw error;
+    }
   }
 
   /**
-   * Populate the database with sample survey data
+   * Populate the database with sample survey data using AgentDB SDK
    */
   async populateSampleData() {
     console.log('Populating sample survey data...');
@@ -333,7 +205,7 @@ export class AgentDbService {
       });
     }
 
-    console.log(`Inserted ${sampleData.length} sample records`);
+    console.log(`✅ Inserted ${sampleData.length} sample records`);
   }
 
   /**
