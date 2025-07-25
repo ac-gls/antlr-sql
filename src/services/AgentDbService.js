@@ -57,7 +57,14 @@ export class AgentDbService {
         return;
       }
 
-      // First, let's try to create/connect to the database
+      // First, test if the API is available
+      const apiAvailable = await this.testApiConnection();
+      
+      if (!apiAvailable) {
+        throw new Error('AgentDB API is not available - no accessible endpoints found');
+      }
+
+      // Try to create/connect to the database
       await this.createDatabase();
 
       // Create the survey responses table
@@ -99,6 +106,50 @@ export class AgentDbService {
   }
 
   /**
+   * Test if the AgentDB API is available with a simple endpoint check
+   */
+  async testApiConnection() {
+    try {
+      console.log('Testing AgentDB API connection...');
+      
+      // Try the most likely endpoint for a health check or simple request
+      const response = await fetch(`${this.baseUrl}/health`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        console.log('AgentDB health check passed');
+        return true;
+      }
+      
+      // If /health doesn't exist, try a simple query endpoint
+      const testResponse = await fetch(`${this.baseUrl}/databases`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (testResponse.ok) {
+        console.log('AgentDB databases endpoint accessible');
+        return true;
+      }
+      
+      console.log('AgentDB API endpoints not accessible');
+      return false;
+      
+    } catch (error) {
+      console.log('AgentDB API connection test failed:', error.message);
+      return false;
+    }
+  }
+
+  /**
    * Initialize mock data for development/testing
    */
   initializeMockData() {
@@ -127,6 +178,8 @@ export class AgentDbService {
    */
   async createDatabase() {
     try {
+      console.log('Attempting database creation/connection...');
+      
       // Try different API endpoint formats based on the documentation
       const createUrl = `${this.baseUrl}/database`;
       
@@ -145,11 +198,29 @@ export class AgentDbService {
       });
 
       if (!response.ok) {
-        // If creation fails, it might already exist, which is fine
-        console.log('Database creation response:', response.status, await response.text());
+        const responseText = await response.text();
+        
+        // Handle specific 404 errors - API endpoint doesn't exist
+        if (response.status === 404) {
+          throw new Error(`AgentDB API endpoint not found (404): ${createUrl}. The API may not support database creation or the endpoint has changed.`);
+        }
+        
+        // For other errors, log but don't throw (database might already exist)
+        console.log(`Database creation response: ${response.status} - ${responseText}`);
+        console.log('This may be normal if the database already exists');
+      } else {
+        console.log('Database created/connected successfully');
       }
     } catch (error) {
-      console.log('Database creation attempt failed (this may be normal):', error.message);
+      console.log('Database creation attempt failed:', error.message);
+      
+      // Re-throw 404 errors as they indicate API unavailability
+      if (error.message.includes('404')) {
+        throw error;
+      }
+      
+      // For other errors, just log them (database might already exist)
+      console.log('Continuing with existing database...');
     }
   }
 

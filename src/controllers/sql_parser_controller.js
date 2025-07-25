@@ -68,24 +68,27 @@ export default class extends Controller {
     } catch (error) {
       console.error('Failed to initialize AgentDB:', error)
       
-      // Show specific error message
+      // Show specific error message based on error type
       if (error.message.includes('timeout')) {
-        this.showDatabaseStatus('Database connection timeout - using local data', 'warning')
-      } else if (error.message.includes('404')) {
-        this.showDatabaseStatus('AgentDB API endpoint not found - using local data', 'warning')
-      } else if (error.message.includes('401') || error.message.includes('403')) {
-        this.showDatabaseStatus('Database authentication failed - check API key', 'error')
+        this.showDatabaseStatus('⚠️ Database connection timeout - using local data', 'warning')
+      } else if (error.message.includes('404') || error.message.includes('not found') || error.message.includes('endpoint')) {
+        this.showDatabaseStatus('⚠️ AgentDB API not available - using local demo data', 'warning')
+      } else if (error.message.includes('401') || error.message.includes('403') || error.message.includes('authentication')) {
+        this.showDatabaseStatus('❌ Database authentication failed - check API key', 'error')
+      } else if (error.message.includes('not available') || error.message.includes('health check failed')) {
+        this.showDatabaseStatus('⚠️ AgentDB service unavailable - using local demo data', 'warning')
       } else {
-        this.showDatabaseStatus(`Database Error: ${error.message}`, 'error')
+        this.showDatabaseStatus(`⚠️ Database connection failed - using local data`, 'warning')
       }
       
       // Fallback to hardcoded data
       console.log('Falling back to hardcoded sample data')
       this.setupFallbackSampleData()
       
-      // Show fallback status
+      // Show final status with demo info
       setTimeout(() => {
-        this.showDatabaseStatus('Using local fallback data (AgentDB unavailable)', 'warning')
+        this.showDatabaseStatus('🎯 Demo Mode: Using local sample data (15 survey responses)', 'info')
+        this.displayMockStatistics()
       }, 2000)
     }
   }
@@ -127,6 +130,28 @@ export default class extends Controller {
       }
     } catch (error) {
       console.error('Failed to get database statistics:', error)
+    }
+  }
+
+  displayMockStatistics() {
+    try {
+      // Update UI with mock stats
+      const statsContainer = document.getElementById('database-stats')
+      if (statsContainer) {
+        statsContainer.innerHTML = `
+          <div class="bg-purple-50 p-4 rounded border-l-4 border-purple-400">
+            <h4 class="font-medium text-purple-900 mb-2">🎭 Demo Mode Statistics</h4>
+            <div class="text-sm text-purple-700 space-y-1">
+              <div><strong>Total Records:</strong> 15 sample survey responses</div>
+              <div><strong>Departments:</strong> Engineering (3), Marketing (2), Sales (2), HR (2), Finance (2)</div>
+              <div><strong>Satisfaction Levels:</strong> Very Satisfied (3), Satisfied (3), Neutral (2), Dissatisfied (2), Very Dissatisfied (2)</div>
+              <div><strong>Mode:</strong> Local demo data (no external database)</div>
+            </div>
+          </div>
+        `
+      }
+    } catch (error) {
+      console.error('Failed to display mock statistics:', error)
     }
   }
 
