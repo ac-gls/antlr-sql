@@ -47,8 +47,14 @@ export default class extends Controller {
       console.log('Initializing AgentDB...')
       this.showDatabaseStatus('Connecting to AgentDB...', 'loading')
       
-      // Initialize the database
-      await this.agentDb.initialize()
+      // Set a timeout for the database initialization
+      const initPromise = this.agentDb.initialize();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Database connection timeout')), 10000)
+      );
+      
+      // Race between initialization and timeout
+      await Promise.race([initPromise, timeoutPromise]);
       
       // Load sample data from database
       await this.loadSampleDataFromDatabase()
@@ -61,12 +67,26 @@ export default class extends Controller {
       
     } catch (error) {
       console.error('Failed to initialize AgentDB:', error)
-      this.showDatabaseStatus(`Database Error: ${error.message}`, 'error')
+      
+      // Show specific error message
+      if (error.message.includes('timeout')) {
+        this.showDatabaseStatus('Database connection timeout - using local data', 'warning')
+      } else if (error.message.includes('404')) {
+        this.showDatabaseStatus('AgentDB API endpoint not found - using local data', 'warning')
+      } else if (error.message.includes('401') || error.message.includes('403')) {
+        this.showDatabaseStatus('Database authentication failed - check API key', 'error')
+      } else {
+        this.showDatabaseStatus(`Database Error: ${error.message}`, 'error')
+      }
       
       // Fallback to hardcoded data
       console.log('Falling back to hardcoded sample data')
       this.setupFallbackSampleData()
-      this.showDatabaseStatus('Using fallback data (AgentDB unavailable)', 'warning')
+      
+      // Show fallback status
+      setTimeout(() => {
+        this.showDatabaseStatus('Using local fallback data (AgentDB unavailable)', 'warning')
+      }, 2000)
     }
   }
 

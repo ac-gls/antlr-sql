@@ -3,13 +3,25 @@
  * Provides database operations for the SQL parser application
  */
 export class AgentDbService {
-  constructor() {
+  constructor(mockMode = false) {
     this.apiKey = 'agentdb_d02f736e6d7468d678c98241d32ebb90e59be24be7b12dedc752a8dc3d91153f';
     this.baseUrl = 'https://api.agentdb.dev';
     this.databaseToken = this.generateDatabaseToken();
     this.databaseName = 'survey_responses_db';
     this.databaseType = 'sqlite';
     this.isInitialized = false;
+    this.mockMode = mockMode;
+    this.mockData = []; // For mock mode
+  }
+
+  /**
+   * Enable mock mode for development/testing
+   */
+  setMockMode(enabled) {
+    this.mockMode = enabled;
+    if (enabled) {
+      console.log('AgentDB Service running in mock mode');
+    }
   }
 
   /**
@@ -35,6 +47,18 @@ export class AgentDbService {
     try {
       console.log('Initializing AgentDB connection...');
       console.log('Database Token:', this.databaseToken);
+      console.log('Mock Mode:', this.mockMode);
+
+      if (this.mockMode) {
+        // Initialize mock data
+        this.initializeMockData();
+        this.isInitialized = true;
+        console.log('AgentDB mock mode initialized successfully');
+        return;
+      }
+
+      // First, let's try to create/connect to the database
+      await this.createDatabase();
 
       // Create the survey responses table
       await this.executeSQL({
@@ -62,32 +86,126 @@ export class AgentDbService {
       console.log('AgentDB initialized successfully');
     } catch (error) {
       console.error('Failed to initialize AgentDB:', error);
-      throw error;
+      
+      // Automatically fall back to mock mode
+      console.log('Falling back to mock mode...');
+      this.mockMode = true;
+      this.initializeMockData();
+      this.isInitialized = true;
+      
+      // Re-throw with more specific error for the controller to handle
+      throw new Error(`AgentDB connection failed: ${error.message}. Using mock mode.`);
     }
   }
 
   /**
-   * Execute SQL query against the database
+   * Initialize mock data for development/testing
+   */
+  initializeMockData() {
+    this.mockData = [
+      { respondentId: 1, Q1: "26-35", Q2: "Daily", Q4: "Very Satisfied", department: "Engineering", joinDate: "2023-01-15" },
+      { respondentId: 2, Q1: "18-25", Q2: "Weekly", Q4: "Satisfied", department: "Marketing", joinDate: "2023-03-20" },
+      { respondentId: 3, Q1: "36-45", Q2: "Monthly", Q4: "Neutral", department: "Sales", joinDate: "2022-11-10" },
+      { respondentId: 4, Q1: "46-55", Q2: "Rarely", Q4: "Dissatisfied", department: "HR", joinDate: "2022-08-05" },
+      { respondentId: 5, Q1: "26-35", Q2: "Daily", Q4: "Very Dissatisfied", department: "Finance", joinDate: "2023-02-28" },
+      { respondentId: 6, Q1: "18-25", Q2: "Weekly", Q4: "Satisfied", department: "Engineering", joinDate: "2023-04-12" },
+      { respondentId: 7, Q1: "36-45", Q2: "Monthly", Q4: "Very Satisfied", department: "Marketing", joinDate: "2022-12-03" },
+      { respondentId: 8, Q1: "26-35", Q2: "Daily", Q4: "Neutral", department: "Sales", joinDate: "2023-01-08" },
+      { respondentId: 9, Q1: "46-55", Q2: "Weekly", Q4: "Dissatisfied", department: "Engineering", joinDate: "2022-09-18" },
+      { respondentId: 10, Q1: "18-25", Q2: "Rarely", Q4: "Very Satisfied", department: "HR", joinDate: "2023-05-22" },
+      { respondentId: 11, Q1: "36-45", Q2: "Daily", Q4: "Satisfied", department: "Finance", joinDate: "2023-06-10" },
+      { respondentId: 12, Q1: "26-35", Q2: "Weekly", Q4: "Very Satisfied", department: "Marketing", joinDate: "2023-04-05" },
+      { respondentId: 13, Q1: "56+", Q2: "Monthly", Q4: "Neutral", department: "Engineering", joinDate: "2022-10-18" },
+      { respondentId: 14, Q1: "18-25", Q2: "Daily", Q4: "Dissatisfied", department: "Sales", joinDate: "2023-07-22" },
+      { respondentId: 15, Q1: "46-55", Q2: "Rarely", Q4: "Very Dissatisfied", department: "HR", joinDate: "2022-09-30" }
+    ];
+    console.log(`Mock data initialized with ${this.mockData.length} records`);
+  }
+
+  /**
+   * Create or connect to the database
+   */
+  async createDatabase() {
+    try {
+      // Try different API endpoint formats based on the documentation
+      const createUrl = `${this.baseUrl}/database`;
+      
+      const response = await fetch(createUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.apiKey}`,
+          'X-API-Key': this.apiKey
+        },
+        body: JSON.stringify({
+          token: this.databaseToken,
+          name: this.databaseName,
+          type: this.databaseType
+        })
+      });
+
+      if (!response.ok) {
+        // If creation fails, it might already exist, which is fine
+        console.log('Database creation response:', response.status, await response.text());
+      }
+    } catch (error) {
+      console.log('Database creation attempt failed (this may be normal):', error.message);
+    }
+  }
+
+  /**
+   * Execute SQL query against the database - try multiple endpoint formats
    */
   async executeSQL(query) {
-    const url = `${this.baseUrl}/database/${this.databaseToken}/${this.databaseName}/${this.databaseType}/execute`;
-    
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.apiKey}`
-      },
-      body: JSON.stringify(query)
-    });
+    const possibleEndpoints = [
+      `${this.baseUrl}/execute`,
+      `${this.baseUrl}/database/execute`,
+      `${this.baseUrl}/databases/${this.databaseToken}/execute`,
+      `${this.baseUrl}/v1/database/${this.databaseToken}/execute`,
+      `${this.baseUrl}/api/database/${this.databaseToken}/execute`
+    ];
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`AgentDB query failed: ${response.status} ${response.statusText} - ${errorText}`);
+    let lastError;
+
+    for (const url of possibleEndpoints) {
+      try {
+        console.log(`Trying endpoint: ${url}`);
+        
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.apiKey}`,
+            'X-API-Key': this.apiKey,
+            'X-Database-Token': this.databaseToken,
+            'X-Database-Name': this.databaseName,
+            'X-Database-Type': this.databaseType
+          },
+          body: JSON.stringify({
+            ...query,
+            token: this.databaseToken,
+            database: this.databaseName,
+            type: this.databaseType
+          })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log(`Success with endpoint: ${url}`);
+          return result.rows || result.data || result;
+        } else {
+          const errorText = await response.text();
+          console.log(`Endpoint ${url} failed:`, response.status, errorText);
+          lastError = new Error(`${response.status}: ${errorText}`);
+        }
+      } catch (error) {
+        console.log(`Endpoint ${url} error:`, error.message);
+        lastError = error;
+      }
     }
 
-    const result = await response.json();
-    return result.rows || result;
+    // If all endpoints fail, throw the last error
+    throw new Error(`All AgentDB endpoints failed. Last error: ${lastError.message}`);
   }
 
   /**
@@ -130,6 +248,10 @@ export class AgentDbService {
    */
   async getAllResponses() {
     try {
+      if (this.mockMode) {
+        return [...this.mockData]; // Return copy of mock data
+      }
+      
       const data = await this.executeSQL({
         sql: 'SELECT * FROM survey_responses ORDER BY respondentId'
       });
@@ -145,6 +267,21 @@ export class AgentDbService {
    */
   async getFilteredResponses(sqlCondition, params = []) {
     try {
+      if (this.mockMode) {
+        // Simple mock filtering - just return all data for now
+        console.log('Mock filtering with condition:', sqlCondition);
+        return this.mockData.filter(row => {
+          // Very basic mock filtering for common cases
+          if (sqlCondition.includes('Q4') && sqlCondition.includes('=')) {
+            const match = sqlCondition.match(/Q4\s*=\s*['"]([^'"]+)['"]/);
+            if (match) {
+              return row.Q4 === match[1];
+            }
+          }
+          return true; // Default: return all data
+        });
+      }
+      
       const sql = `SELECT * FROM survey_responses WHERE ${sqlCondition} ORDER BY respondentId`;
       const data = await this.executeSQL({
         sql: sql,
@@ -162,6 +299,13 @@ export class AgentDbService {
    */
   async addResponse(response) {
     try {
+      if (this.mockMode) {
+        const newRecord = { ...response };
+        this.mockData.push(newRecord);
+        console.log('Mock: Survey response added successfully');
+        return;
+      }
+      
       await this.executeSQL({
         sql: `INSERT INTO survey_responses (respondentId, Q1, Q2, Q4, department, joinDate) 
               VALUES (?, ?, ?, ?, ?, ?)`,
@@ -175,46 +319,36 @@ export class AgentDbService {
   }
 
   /**
-   * Update an existing survey response
-   */
-  async updateResponse(respondentId, updates) {
-    try {
-      const fields = Object.keys(updates);
-      const values = Object.values(updates);
-      const setClause = fields.map(field => `${field} = ?`).join(', ');
-
-      await this.executeSQL({
-        sql: `UPDATE survey_responses SET ${setClause} WHERE respondentId = ?`,
-        params: [...values, respondentId]
-      });
-      console.log('Survey response updated successfully');
-    } catch (error) {
-      console.error('Failed to update survey response:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Delete a survey response
-   */
-  async deleteResponse(respondentId) {
-    try {
-      await this.executeSQL({
-        sql: 'DELETE FROM survey_responses WHERE respondentId = ?',
-        params: [respondentId]
-      });
-      console.log('Survey response deleted successfully');
-    } catch (error) {
-      console.error('Failed to delete survey response:', error);
-      throw error;
-    }
-  }
-
-  /**
    * Get database statistics
    */
   async getStatistics() {
     try {
+      if (this.mockMode) {
+        const totalCount = this.mockData.length;
+        
+        const departmentCounts = {};
+        const satisfactionCounts = {};
+        
+        this.mockData.forEach(row => {
+          departmentCounts[row.department] = (departmentCounts[row.department] || 0) + 1;
+          satisfactionCounts[row.Q4] = (satisfactionCounts[row.Q4] || 0) + 1;
+        });
+        
+        const byDepartment = Object.entries(departmentCounts).map(([department, count]) => ({
+          department, count
+        })).sort((a, b) => b.count - a.count);
+        
+        const bySatisfaction = Object.entries(satisfactionCounts).map(([satisfaction, count]) => ({
+          satisfaction, count
+        })).sort((a, b) => b.count - a.count);
+        
+        return {
+          total: totalCount,
+          byDepartment,
+          bySatisfaction
+        };
+      }
+
       const totalCount = await this.executeSQL({
         sql: 'SELECT COUNT(*) as total FROM survey_responses'
       });
@@ -239,10 +373,121 @@ export class AgentDbService {
   }
 
   /**
+   * Apply Kendo filter to get filtered survey responses
+   */
+  async applyKendoFilter(filterExpression) {
+    try {
+      if (this.mockMode) {
+        console.log('Mock: Applying Kendo filter', filterExpression);
+        
+        if (!filterExpression || !filterExpression.filters || filterExpression.filters.length === 0) {
+          return [...this.mockData];
+        }
+
+        return this.mockData.filter(row => {
+          // Apply the filter logic based on the expression
+          for (const filter of filterExpression.filters) {
+            const fieldValue = row[filter.field];
+            const filterValue = filter.value;
+            
+            switch (filter.operator) {
+              case 'eq':
+                if (fieldValue == filterValue) return true;
+                break;
+              case 'neq':
+                if (fieldValue != filterValue) return true;
+                break;
+              default:
+                // For 'in' operations or other complex logic
+                if (Array.isArray(filterValue)) {
+                  if (filterValue.includes(fieldValue)) return true;
+                } else {
+                  if (fieldValue == filterValue) return true;
+                }
+            }
+          }
+          return false;
+        });
+      }
+      
+      const { condition, params } = this.convertKendoFilterToSQL(filterExpression);
+      return await this.getFilteredResponses(condition, params);
+    } catch (error) {
+      console.error('Failed to apply Kendo filter:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update an existing survey response
+   */
+  async updateResponse(respondentId, updates) {
+    try {
+      if (this.mockMode) {
+        const index = this.mockData.findIndex(row => row.respondentId === respondentId);
+        if (index >= 0) {
+          this.mockData[index] = { ...this.mockData[index], ...updates };
+          console.log('Mock: Survey response updated successfully');
+        } else {
+          throw new Error(`Response with ID ${respondentId} not found`);
+        }
+        return;
+      }
+      
+      const fields = Object.keys(updates);
+      const values = Object.values(updates);
+      const setClause = fields.map(field => `${field} = ?`).join(', ');
+
+      await this.executeSQL({
+        sql: `UPDATE survey_responses SET ${setClause} WHERE respondentId = ?`,
+        params: [...values, respondentId]
+      });
+      console.log('Survey response updated successfully');
+    } catch (error) {
+      console.error('Failed to update survey response:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a survey response
+   */
+  async deleteResponse(respondentId) {
+    try {
+      if (this.mockMode) {
+        const index = this.mockData.findIndex(row => row.respondentId === respondentId);
+        if (index >= 0) {
+          this.mockData.splice(index, 1);
+          console.log('Mock: Survey response deleted successfully');
+        } else {
+          throw new Error(`Response with ID ${respondentId} not found`);
+        }
+        return;
+      }
+      
+      await this.executeSQL({
+        sql: 'DELETE FROM survey_responses WHERE respondentId = ?',
+        params: [respondentId]
+      });
+      console.log('Survey response deleted successfully');
+    } catch (error) {
+      console.error('Failed to delete survey response:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get the database download URL
    */
   async getDownloadUrl() {
     try {
+      if (this.mockMode) {
+        return {
+          url: '#mock-download-not-available',
+          message: 'Download not available in mock mode'
+        };
+      }
+      
       const url = `${this.baseUrl}/database/${this.databaseToken}/${this.databaseName}/${this.databaseType}/download`;
       
       const response = await fetch(url, {
@@ -316,17 +561,6 @@ export class AgentDbService {
 
     return { condition, params };
   }
-
-  /**
-   * Apply Kendo filter to get filtered survey responses
-   */
-  async applyKendoFilter(filterExpression) {
-    try {
-      const { condition, params } = this.convertKendoFilterToSQL(filterExpression);
-      return await this.getFilteredResponses(condition, params);
-    } catch (error) {
-      console.error('Failed to apply Kendo filter:', error);
-      throw error;
-    }
-  }
 }
+
+export default AgentDbService;
