@@ -1,24 +1,281 @@
 /**
- * Converts SQL CASE statement AST to Kendo UI filter expressions
+ * @module KendoFilterConverter
+ * @description Converts SQL CASE statement Abstract Syntax Trees (AST) into Kendo UI
+ * filter expressions. This module bridges the gap between SQL-based survey logic and
+ * the Kendo UI Filter widget configuration.
+ * 
+ * The converter handles:
+ * - Survey question registration and mapping
+ * - IN condition conversion to OR-based filters
+ * - Equality condition conversion to single filters
+ * - Field definition generation for Kendo Filter widget
+ * - Human-readable display text generation
+ * - Complete usage example generation
+ * 
+ * @example
+ * // Basic usage flow
+ * import { SqlCaseParser } from './SqlCaseParser.js';
+ * import { KendoFilterConverter } from './KendoFilterConverter.js';
+ * 
+ * // 1. Parse the SQL CASE statement
+ * const parser = new SqlCaseParser();
+ * const ast = parser.parse("CASE WHEN [Q4] IN (1, 2, 3) THEN 1 ELSE NULL END");
+ * 
+ * // 2. Set up the converter with question mappings
+ * const converter = new KendoFilterConverter();
+ * converter.registerSurveyQuestion('Q4', {
+ *   id: 'Q4',
+ *   text: 'How satisfied are you?',
+ *   answers: [
+ *     { value: 1, label: 'Very Satisfied' },
+ *     { value: 2, label: 'Satisfied' },
+ *     { value: 3, label: 'Neutral' }
+ *   ]
+ * });
+ * 
+ * // 3. Convert to Kendo filter
+ * const kendoConfig = converter.convertToKendoFilter(ast);
+ * 
+ * @see {@link module:SqlCaseParser} for parsing SQL CASE statements
+ * @see https://docs.telerik.com/kendo-ui/api/javascript/ui/filter Kendo UI Filter documentation
+ */
+
+/**
+ * @typedef {Object} SurveyQuestionConfig
+ * @property {string} id - Unique identifier for the question (e.g., 'Q4')
+ * @property {string} text - The question text displayed to respondents
+ * @property {string} [type='multiple_choice'] - Question type identifier
+ * @property {AnswerConfig[]} answers - Array of possible answer configurations
+ * @description Configuration object for a survey question
+ */
+
+/**
+ * @typedef {Object} AnswerConfig
+ * @property {number|string} value - The raw answer value (often numeric for coded responses)
+ * @property {string} label - Human-readable answer label
+ * @description Configuration for a single answer option
+ */
+
+/**
+ * @typedef {Object} KendoFilterConfig
+ * @property {KendoFilterExpression} expression - The filter expression configuration
+ * @property {KendoFieldDefinition[]} fields - Field definitions for the filter widget
+ * @property {string} displayText - Human-readable description of the filter
+ * @description Complete Kendo UI Filter configuration object
+ */
+
+/**
+ * @typedef {Object} KendoFilterExpression
+ * @property {'and'|'or'} logic - Logical operator combining filters
+ * @property {KendoFilter[]} filters - Array of individual filter conditions
+ * @property {string} [displayText] - Human-readable display text
+ * @property {SurveyQuestionConfig} [questionConfig] - Associated question configuration
+ * @description Kendo UI filter expression object
+ */
+
+/**
+ * @typedef {Object} KendoFilter
+ * @property {string} field - Field name to filter on
+ * @property {string} operator - Filter operator (e.g., 'eq', 'neq', 'contains')
+ * @property {*} value - Value to filter against
+ * @description Individual Kendo UI filter condition
+ */
+
+/**
+ * @typedef {Object} KendoFieldDefinition
+ * @property {string} name - Field identifier
+ * @property {string} type - Data type ('string', 'number', 'date', 'boolean')
+ * @property {string} label - Display label for the field
+ * @property {KendoFieldValue[]} [values] - Predefined values for dropdown selection
+ * @description Field definition for Kendo Filter widget
+ */
+
+/**
+ * @typedef {Object} KendoFieldValue
+ * @property {string} text - Display text for the value
+ * @property {*} value - Actual value to use in filter
+ * @description Value option for Kendo Filter field dropdown
+ */
+
+/**
+ * @typedef {Object} UsageExample
+ * @property {string} title - Example section title
+ * @property {UsageStep[]} steps - Array of implementation steps
+ * @property {string[]} notes - Additional implementation notes
+ * @description Complete usage example for implementing Kendo Filter
+ */
+
+/**
+ * @typedef {Object} UsageStep
+ * @property {number} step - Step number
+ * @property {string} title - Step title
+ * @property {string} description - Step description
+ * @property {string} code - Code example
+ * @property {string} language - Code language ('html', 'javascript', 'css')
+ * @description Individual implementation step
+ */
+
+/**
+ * Converts SQL CASE statement ASTs to Kendo UI filter configurations.
+ * 
+ * This class serves as the bridge between parsed SQL CASE expressions and
+ * Kendo UI Filter widget configurations. It maintains a registry of survey
+ * questions and their answer mappings to produce meaningful filter expressions
+ * with human-readable labels.
+ * 
+ * @class KendoFilterConverter
+ * @classdesc Transforms SQL-based survey logic into Kendo UI filterable expressions.
+ * Survey questions are registered with their answer mappings, allowing numeric
+ * answer codes to be converted to human-readable labels in the filter output.
+ * 
+ * @example
+ * // Complete workflow example
+ * import { SqlCaseParser } from './SqlCaseParser.js';
+ * import { KendoFilterConverter } from './KendoFilterConverter.js';
+ * 
+ * // Parse SQL
+ * const parser = new SqlCaseParser();
+ * const ast = parser.parse("CASE WHEN [Satisfaction] IN (4, 5) THEN 1 ELSE NULL END");
+ * 
+ * // Configure converter
+ * const converter = new KendoFilterConverter();
+ * converter.registerSurveyQuestion('Satisfaction', {
+ *   id: 'Satisfaction',
+ *   text: 'Overall Satisfaction',
+ *   answers: [
+ *     { value: 1, label: 'Very Dissatisfied' },
+ *     { value: 2, label: 'Dissatisfied' },
+ *     { value: 3, label: 'Neutral' },
+ *     { value: 4, label: 'Satisfied' },
+ *     { value: 5, label: 'Very Satisfied' }
+ *   ]
+ * });
+ * 
+ * // Convert to Kendo filter
+ * const kendoConfig = converter.convertToKendoFilter(ast);
+ * // Use kendoConfig.expression with Kendo Filter widget
+ * 
+ * @example
+ * // Using the static helper to create question configs
+ * const question = KendoFilterConverter.createSurveyQuestion(
+ *   'NPS',
+ *   'How likely are you to recommend us?',
+ *   [
+ *     { value: 0, label: 'Not at all likely' },
+ *     { value: 5, label: 'Neutral' },
+ *     { value: 10, label: 'Extremely likely' }
+ *   ]
+ * );
  */
 export class KendoFilterConverter {
+  /**
+   * Creates a new KendoFilterConverter instance.
+   * 
+   * Initializes an empty survey question registry. Questions must be registered
+   * using {@link registerSurveyQuestion} before converting ASTs that reference them.
+   * 
+   * @constructor
+   * @memberof KendoFilterConverter
+   * 
+   * @example
+   * const converter = new KendoFilterConverter();
+   */
   constructor() {
+    /**
+     * Map of registered survey questions keyed by question ID.
+     * @type {Map<string, SurveyQuestionConfig>}
+     * @private
+     */
     this.surveyQuestions = new Map();
   }
 
   /**
-   * Register a survey question mapping
-   * @param {string} questionId - Question identifier (e.g., "Q4")
-   * @param {object} questionConfig - Question configuration
+   * Register a survey question configuration for use during AST conversion.
+   * 
+   * Survey questions must be registered before converting ASTs that reference
+   * them. The registration maps question IDs (as used in SQL column references)
+   * to their full configuration including answer labels.
+   * 
+   * @param {string} questionId - Unique identifier for the question, matching
+   *   the column name used in SQL (e.g., 'Q4', 'Satisfaction')
+   * @param {SurveyQuestionConfig} questionConfig - Complete question configuration
+   *   including text and answer mappings
+   * @returns {void}
+   * 
+   * @example
+   * const converter = new KendoFilterConverter();
+   * 
+   * // Register a satisfaction question
+   * converter.registerSurveyQuestion('Q4', {
+   *   id: 'Q4',
+   *   text: 'How satisfied are you with our service?',
+   *   type: 'multiple_choice',
+   *   answers: [
+   *     { value: 1, label: 'Very Dissatisfied' },
+   *     { value: 2, label: 'Dissatisfied' },
+   *     { value: 3, label: 'Neutral' },
+   *     { value: 4, label: 'Satisfied' },
+   *     { value: 5, label: 'Very Satisfied' }
+   *   ]
+   * });
+   * 
+   * @example
+   * // Using the static helper method
+   * converter.registerSurveyQuestion(
+   *   'NPS',
+   *   KendoFilterConverter.createSurveyQuestion(
+   *     'NPS',
+   *     'Net Promoter Score',
+   *     [{ value: 10, label: 'Promoter' }]
+   *   )
+   * );
+   * 
+   * @see {@link createSurveyQuestion} for creating question configurations
    */
   registerSurveyQuestion(questionId, questionConfig) {
     this.surveyQuestions.set(questionId, questionConfig);
   }
 
   /**
-   * Convert SQL CASE AST to Kendo UI filter
-   * @param {object} caseAst - The parsed CASE statement AST
-   * @returns {object} - Kendo UI filter configuration
+   * Convert a SQL CASE statement AST to a complete Kendo UI filter configuration.
+   * 
+   * This is the main entry point for AST conversion. It takes a parsed CaseExpression
+   * and produces a configuration object suitable for initializing a Kendo UI Filter
+   * widget, including the filter expression, field definitions, and display text.
+   * 
+   * **Current Limitations:**
+   * - Only processes the first WHEN clause of CASE statements
+   * - Compound conditions (AND/OR within a single WHEN) are not yet supported
+   * 
+   * @param {import('./SqlCaseParser.js').CaseExpressionAST} caseAst - The parsed
+   *   CASE statement AST from {@link SqlCaseParser#parse}
+   * @returns {KendoFilterConfig} Complete Kendo UI filter configuration including
+   *   expression, field definitions, and display text
+   * @throws {Error} If the AST is not a CaseExpression
+   * @throws {Error} If the CASE statement has no WHEN clauses
+   * @throws {Error} If referenced questions are not registered
+   * 
+   * @example
+   * const parser = new SqlCaseParser();
+   * const ast = parser.parse("CASE WHEN [Q4] IN (1, 2) THEN 1 ELSE NULL END");
+   * 
+   * const converter = new KendoFilterConverter();
+   * converter.registerSurveyQuestion('Q4', questionConfig);
+   * 
+   * const config = converter.convertToKendoFilter(ast);
+   * // config.expression - Use with Kendo Filter widget
+   * // config.fields - Field definitions for the widget
+   * // config.displayText - Human-readable filter description
+   * 
+   * @example
+   * // Initialize Kendo Filter with result
+   * $("#filter").kendoFilter({
+   *   expression: config.expression,
+   *   fields: config.fields
+   * });
+   * 
+   * @see {@link convertConditionToFilter} for condition conversion details
+   * @see {@link generateFieldDefinitions} for field definition generation
    */
   convertToKendoFilter(caseAst) {
     if (caseAst.type !== 'CaseExpression') {
@@ -44,9 +301,25 @@ export class KendoFilterConverter {
   }
 
   /**
-   * Convert a condition AST to Kendo UI filter
-   * @param {object} condition - Condition AST
-   * @returns {object} - Kendo UI filter configuration
+   * Convert a condition AST node to a Kendo UI filter expression.
+   * 
+   * This method dispatches to the appropriate conversion method based on
+   * the condition type. Currently supports IN conditions and equality conditions.
+   * 
+   * @param {import('./SqlCaseParser.js').ConditionAST} condition - The condition
+   *   AST node to convert (InConditionAST or EqualsConditionAST)
+   * @returns {KendoFilterExpression} Kendo UI filter expression object
+   * @throws {Error} If the condition type is not supported
+   * @private
+   * 
+   * @example
+   * // Converting an IN condition
+   * const inCondition = { type: 'InCondition', column: {...}, values: [...] };
+   * const filter = this.convertConditionToFilter(inCondition);
+   * // Returns: { logic: 'or', filters: [...] }
+   * 
+   * @see {@link convertInCondition} for IN condition handling
+   * @see {@link convertEqualsCondition} for equality condition handling
    */
   convertConditionToFilter(condition) {
     switch (condition.type) {
@@ -60,9 +333,44 @@ export class KendoFilterConverter {
   }
 
   /**
-   * Convert IN condition to Kendo UI filter
-   * @param {object} condition - IN condition AST
-   * @returns {object} - Kendo UI filter expression
+   * Convert an IN condition AST to a Kendo UI filter expression.
+   * 
+   * IN conditions are converted to filters with 'or' logic, where each value
+   * in the IN list becomes a separate equality filter. Values are mapped to
+   * their human-readable labels using the registered question configuration.
+   * 
+   * **SQL to Kendo Mapping:**
+   * ```
+   * [Q4] IN (1, 2, 3)
+   *   ↓
+   * { logic: 'or', filters: [
+   *   { field: 'Q4', operator: 'eq', value: 'Very Satisfied' },
+   *   { field: 'Q4', operator: 'eq', value: 'Satisfied' },
+   *   { field: 'Q4', operator: 'eq', value: 'Neutral' }
+   * ]}
+   * ```
+   * 
+   * @param {import('./SqlCaseParser.js').InConditionAST} condition - The IN
+   *   condition AST node
+   * @returns {KendoFilterExpression} Kendo filter expression with 'or' logic
+   * @throws {Error} If the question ID is not registered
+   * @private
+   * 
+   * @example
+   * // Given registered question Q4 with value 1 = 'Very Satisfied'
+   * const condition = {
+   *   type: 'InCondition',
+   *   column: { type: 'ColumnRef', name: 'Q4' },
+   *   values: [{ type: 'NumberValue', value: 1 }]
+   * };
+   * 
+   * const filter = this.convertInCondition(condition);
+   * // Returns: {
+   * //   logic: 'or',
+   * //   filters: [{ field: 'Q4', operator: 'eq', value: 'Very Satisfied' }],
+   * //   displayText: 'How satisfied are you? is "Very Satisfied"',
+   * //   questionConfig: {...}
+   * // }
    */
   convertInCondition(condition) {
     const questionId = condition.column.name;
@@ -101,9 +409,42 @@ export class KendoFilterConverter {
   }
 
   /**
-   * Convert equals condition to Kendo UI filter
-   * @param {object} condition - Equals condition AST
-   * @returns {object} - Kendo UI filter expression
+   * Convert an equality condition AST to a Kendo UI filter expression.
+   * 
+   * Equality conditions are converted to filters with 'and' logic containing
+   * a single filter. The value is mapped to its human-readable label using
+   * the registered question configuration.
+   * 
+   * **SQL to Kendo Mapping:**
+   * ```
+   * [Q4] = 5
+   *   ↓
+   * { logic: 'and', filters: [
+   *   { field: 'Q4', operator: 'eq', value: 'Very Satisfied' }
+   * ]}
+   * ```
+   * 
+   * @param {import('./SqlCaseParser.js').EqualsConditionAST} condition - The
+   *   equality condition AST node
+   * @returns {KendoFilterExpression} Kendo filter expression with 'and' logic
+   * @throws {Error} If the question ID is not registered
+   * @private
+   * 
+   * @example
+   * // Given registered question Q4 with value 5 = 'Very Satisfied'
+   * const condition = {
+   *   type: 'EqualsCondition',
+   *   column: { type: 'ColumnRef', name: 'Q4' },
+   *   value: { type: 'NumberValue', value: 5 }
+   * };
+   * 
+   * const filter = this.convertEqualsCondition(condition);
+   * // Returns: {
+   * //   logic: 'and',
+   * //   filters: [{ field: 'Q4', operator: 'eq', value: 'Very Satisfied' }],
+   * //   displayText: 'How satisfied are you? is "Very Satisfied"',
+   * //   questionConfig: {...}
+   * // }
    */
   convertEqualsCondition(condition) {
     const questionId = condition.column.name;
@@ -139,9 +480,43 @@ export class KendoFilterConverter {
   }
 
   /**
-   * Generate field definitions for Kendo Filter widget
-   * @param {object} condition - The condition AST to extract field information from
-   * @returns {array} - Array of field definitions
+   * Generate Kendo Filter widget field definitions from a condition AST.
+   * 
+   * Field definitions describe the available fields for filtering, including
+   * their data types, display labels, and predefined value options. These
+   * definitions are used by the Kendo Filter widget to render appropriate
+   * UI controls.
+   * 
+   * For registered survey questions, the field definition includes:
+   * - Question text as the display label
+   * - Answer options as predefined selectable values
+   * - String type for consistent handling of survey responses
+   * 
+   * @param {import('./SqlCaseParser.js').ConditionAST} condition - The condition
+   *   AST to extract field information from
+   * @returns {KendoFieldDefinition[]} Array of field definitions for Kendo Filter
+   * @private
+   * 
+   * @example
+   * const condition = {
+   *   type: 'InCondition',
+   *   column: { type: 'ColumnRef', name: 'Q4' },
+   *   values: [...]
+   * };
+   * 
+   * const fields = this.generateFieldDefinitions(condition);
+   * // Returns: [{
+   * //   name: 'Q4',
+   * //   type: 'string',
+   * //   label: 'How satisfied are you?',
+   * //   values: [
+   * //     { text: 'Very Satisfied', value: 'Very Satisfied' },
+   * //     { text: 'Satisfied', value: 'Satisfied' },
+   * //     ...
+   * //   ]
+   * // }]
+   * 
+   * @see {@link extractFieldNames} for field name extraction
    */
   generateFieldDefinitions(condition) {
     const fieldNames = this.extractFieldNames(condition);
@@ -169,9 +544,27 @@ export class KendoFilterConverter {
   }
 
   /**
-   * Extract field names from a condition AST
-   * @param {object} condition - Condition AST
-   * @returns {array} - Array of unique field names
+   * Extract unique field names from a condition AST.
+   * 
+   * Traverses the condition AST to find all referenced column/field names.
+   * Returns a deduplicated array of field names that appear in the condition.
+   * 
+   * @param {import('./SqlCaseParser.js').ConditionAST} condition - The condition
+   *   AST to extract field names from
+   * @returns {string[]} Array of unique field names referenced in the condition
+   * @private
+   * 
+   * @example
+   * const condition = {
+   *   type: 'InCondition',
+   *   column: { type: 'ColumnRef', name: 'Q4' },
+   *   values: [...]
+   * };
+   * 
+   * const fieldNames = this.extractFieldNames(condition);
+   * // Returns: ['Q4']
+   * 
+   * @todo Add support for compound conditions (AND/OR) with multiple columns
    */
   extractFieldNames(condition) {
     const fieldNames = new Set();
@@ -185,10 +578,37 @@ export class KendoFilterConverter {
   }
 
   /**
-   * Generate human-readable display text for the filter
-   * @param {object} questionConfig - Question configuration
-   * @param {array} selectedValues - Selected answer values
-   * @returns {string} - Display text
+   * Generate human-readable display text for a filter condition.
+   * 
+   * Creates a natural language description of the filter that can be
+   * displayed in the UI. Handles both single and multiple value selections
+   * with appropriate grammar.
+   * 
+   * **Output Format:**
+   * - Single value: `"Question Text is "Value""`
+   * - Multiple values: `"Question Text is "Value1", "Value2" or "Value3""`
+   * 
+   * @param {SurveyQuestionConfig} questionConfig - The question configuration
+   *   containing the question text
+   * @param {string[]} selectedValues - Array of selected answer labels
+   * @returns {string} Human-readable filter description
+   * @private
+   * 
+   * @example
+   * // Single value
+   * const text = this.generateDisplayText(
+   *   { text: 'Satisfaction Level' },
+   *   ['Very Satisfied']
+   * );
+   * // Returns: 'Satisfaction Level is "Very Satisfied"'
+   * 
+   * @example
+   * // Multiple values
+   * const text = this.generateDisplayText(
+   *   { text: 'Age Group' },
+   *   ['18-24', '25-34', '35-44']
+   * );
+   * // Returns: 'Age Group is "18-24", "25-34" or "35-44"'
    */
   generateDisplayText(questionConfig, selectedValues) {
     const questionText = questionConfig.text || questionConfig.id;
@@ -202,9 +622,46 @@ export class KendoFilterConverter {
   }
 
   /**
-   * Generate a complete usage example showing how to implement the Kendo Filter
-   * @param {object} kendoFilterConfig - The complete Kendo Filter configuration
-   * @returns {object} - Usage example with HTML, JavaScript, and implementation steps
+   * Generate a complete usage example showing how to implement the Kendo Filter.
+   * 
+   * Creates comprehensive implementation guidance including HTML structure,
+   * JavaScript initialization, optional CSS styling, and integration notes.
+   * This is useful for developers implementing the filter in their applications.
+   * 
+   * The generated example includes:
+   * 1. HTML markup for filter and grid containers
+   * 2. JavaScript code for Kendo Filter and Grid initialization
+   * 3. Event handling for filter changes
+   * 4. CSS styling suggestions
+   * 5. Implementation notes and tips
+   * 
+   * @param {KendoFilterConfig} kendoFilterConfig - The complete Kendo Filter
+   *   configuration generated by {@link convertToKendoFilter}
+   * @returns {UsageExample} Complete usage example with HTML, JavaScript, CSS,
+   *   and implementation notes
+   * 
+   * @example
+   * const converter = new KendoFilterConverter();
+   * // ... register questions and convert AST ...
+   * const config = converter.convertToKendoFilter(ast);
+   * 
+   * const example = converter.generateUsageExample(config);
+   * 
+   * console.log(example.title);  // 'How to Use in Your Application'
+   * console.log(example.steps);  // Array of implementation steps
+   * console.log(example.notes);  // Array of helpful notes
+   * 
+   * // Access specific code examples
+   * example.steps.forEach(step => {
+   *   console.log(`Step ${step.step}: ${step.title}`);
+   *   console.log(step.code);
+   * });
+   * 
+   * @example
+   * // Use in documentation generation
+   * const example = converter.generateUsageExample(config);
+   * const htmlStep = example.steps.find(s => s.language === 'html');
+   * // Insert htmlStep.code into documentation
    */
   generateUsageExample(kendoFilterConfig) {
     const htmlExample = `<div id="filter"></div>
@@ -284,11 +741,56 @@ filter.bind("change", function(e) {
   }
 
   /**
-   * Create a sample survey question configuration
-   * @param {string} questionId - Question identifier
-   * @param {string} questionText - Question text
-   * @param {array} answers - Array of answer objects with value and label
-   * @returns {object} - Question configuration
+   * Create a standardized survey question configuration object.
+   * 
+   * Static factory method for creating properly structured question
+   * configuration objects. Ensures consistent structure and provides
+   * default values where appropriate.
+   * 
+   * @param {string} questionId - Unique identifier for the question
+   *   (e.g., 'Q4', 'NPS', 'Satisfaction')
+   * @param {string} questionText - The full question text as displayed
+   *   to survey respondents
+   * @param {AnswerConfig[]} answers - Array of answer configurations,
+   *   each with `value` and `label` properties
+   * @returns {SurveyQuestionConfig} Properly structured question configuration
+   * @static
+   * 
+   * @example
+   * // Create a satisfaction question
+   * const satisfactionQ = KendoFilterConverter.createSurveyQuestion(
+   *   'Q4',
+   *   'How satisfied are you with our service?',
+   *   [
+   *     { value: 1, label: 'Very Dissatisfied' },
+   *     { value: 2, label: 'Dissatisfied' },
+   *     { value: 3, label: 'Neutral' },
+   *     { value: 4, label: 'Satisfied' },
+   *     { value: 5, label: 'Very Satisfied' }
+   *   ]
+   * );
+   * 
+   * // Register with converter
+   * converter.registerSurveyQuestion('Q4', satisfactionQ);
+   * 
+   * @example
+   * // Create a Net Promoter Score question
+   * const npsQ = KendoFilterConverter.createSurveyQuestion(
+   *   'NPS',
+   *   'How likely are you to recommend us to a friend or colleague?',
+   *   Array.from({ length: 11 }, (_, i) => ({ value: i, label: i.toString() }))
+   * );
+   * 
+   * @example
+   * // Create a yes/no question
+   * const yesNoQ = KendoFilterConverter.createSurveyQuestion(
+   *   'Q1',
+   *   'Have you used our product before?',
+   *   [
+   *     { value: 1, label: 'Yes' },
+   *     { value: 2, label: 'No' }
+   *   ]
+   * );
    */
   static createSurveyQuestion(questionId, questionText, answers) {
     return {
