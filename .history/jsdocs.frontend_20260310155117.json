@@ -1,0 +1,12 @@
+{
+  "source": {
+    "include": ["frontend/src"],
+    "includePattern": ".+\\.js(doc|x)?$",
+    "recurse": true
+  },
+  "opts": {
+    "destination": "docs/frontend/jsdoc",
+    "recurse": true
+  },
+  "plugins": ["plugins/markdown"]
+}
