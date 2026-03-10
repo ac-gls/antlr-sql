@@ -1,6 +1,7 @@
+remote_theme: pages-themes/minimal@v0.2.0
 plugins:
   - jekyll-relative-links
-theme: minimal
+  - jekyll-remote-theme
 relative_links:
   enabled: true
   collections: true
