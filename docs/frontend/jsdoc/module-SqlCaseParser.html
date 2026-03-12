@@ -1,0 +1,1752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Module: SqlCaseParser</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Module: SqlCaseParser</h1>
+
+    
+
+
+
+
+<section>
+
+<header>
+    
+        
+            
+        
+    
+</header>
+
+<article>
+    <div class="container-overview">
+    
+        
+            <div class="description"><p>A recursive descent parser for SQL CASE statements that converts SQL syntax
+into an Abstract Syntax Tree (AST). This parser is designed specifically for handling
+survey question expressions in the format commonly used with Kendo UI filters.</p>
+<p>The parser supports:</p>
+<ul>
+<li>Simple CASE...WHEN...THEN...ELSE...END expressions</li>
+<li>IN conditions with value lists: <code>[Q4] IN (1, 2, 3)</code></li>
+<li>Equality conditions: <code>[Q4] = 1</code></li>
+<li>Bracketed column references: <code>[Q4]</code>, <code>[QuestionName]</code></li>
+<li>Numeric, string, and NULL values</li>
+</ul></div>
+        
+
+        
+            
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="parsers_SqlCaseParser.js.html">parsers/SqlCaseParser.js</a>, <a href="parsers_SqlCaseParser.js.html#line1">line 1</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+    <dt class="tag-see">See:</dt>
+    <dd class="tag-see">
+        <ul>
+            <li><a href="module-KendoFilterConverter.html">module:KendoFilterConverter</a> for converting the AST to Kendo UI filters</li>
+        </ul>
+    </dd>
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <h5>Example</h5>
+    
+    <pre class="prettyprint"><code>// Basic usageimport { SqlCaseParser } from './parsers/SqlCaseParser.js';const parser = new SqlCaseParser();const ast = parser.parse("CASE WHEN [Q4] IN (1, 2, 3) THEN 1 ELSE NULL END");console.log(ast);// Output: { type: 'CaseExpression', whenClauses: [...], elseClause: {...} }</code></pre>
+
+
+
+        
+    
+    </div>
+
+    
+
+    
+
+    
+        <h3 class="subsection-title">Classes</h3>
+
+        <dl>
+            <dt><a href="module-SqlCaseParser-SqlCaseParser.html">SqlCaseParser</a></dt>
+            <dd></dd>
+        </dl>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+        <h3 class="subsection-title">Type Definitions</h3>
+
+        
+                
+<h4 class="name" id="~CaseExpressionAST">CaseExpressionAST</h4>
+
+
+
+
+<div class="description">
+    <p>Represents the root AST node for a SQL CASE expression</p>
+</div>
+
+
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type">Object</span>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+    <h5 class="subsection-title">Properties:</h5>
+
+    
+
+<table class="props">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>type</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">'CaseExpression'</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>The AST node type identifier</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>whenClauses</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">Array.&lt;WhenClauseAST></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>Array of WHEN clause AST nodes</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>elseClause</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">ElseClauseAST</span>
+|
+
+<span class="param-type">null</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>Optional ELSE clause AST node</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="parsers_SqlCaseParser.js.html">parsers/SqlCaseParser.js</a>, <a href="parsers_SqlCaseParser.js.html#line26">line 26</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+            
+                
+<h4 class="name" id="~ColumnRefAST">ColumnRefAST</h4>
+
+
+
+
+<div class="description">
+    <p>Represents a reference to a column/field (survey question)</p>
+</div>
+
+
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type">Object</span>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+    <h5 class="subsection-title">Properties:</h5>
+
+    
+
+<table class="props">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>type</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">'ColumnRef'</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>The AST node type identifier</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>name</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>The column name (without brackets)</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="parsers_SqlCaseParser.js.html">parsers/SqlCaseParser.js</a>, <a href="parsers_SqlCaseParser.js.html#line70">line 70</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+            
+                
+<h4 class="name" id="~ConditionAST">ConditionAST</h4>
+
+
+
+
+<div class="description">
+    <p>Union type representing the supported condition types</p>
+</div>
+
+
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type">InConditionAST</span>
+|
+
+<span class="param-type">EqualsConditionAST</span>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="parsers_SqlCaseParser.js.html">parsers/SqlCaseParser.js</a>, <a href="parsers_SqlCaseParser.js.html#line49">line 49</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+            
+                
+<h4 class="name" id="~ElseClauseAST">ElseClauseAST</h4>
+
+
+
+
+<div class="description">
+    <p>Represents the ELSE clause within a CASE expression</p>
+</div>
+
+
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type">Object</span>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+    <h5 class="subsection-title">Properties:</h5>
+
+    
+
+<table class="props">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>type</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">'ElseClause'</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>The AST node type identifier</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>expression</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">ValueAST</span>
+|
+
+<span class="param-type">ColumnRefAST</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>The default result expression</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="parsers_SqlCaseParser.js.html">parsers/SqlCaseParser.js</a>, <a href="parsers_SqlCaseParser.js.html#line42">line 42</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+            
+                
+<h4 class="name" id="~EqualsConditionAST">EqualsConditionAST</h4>
+
+
+
+
+<div class="description">
+    <p>Represents an equality condition (e.g., <code>[Q4] = 1</code>)</p>
+</div>
+
+
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type">Object</span>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+    <h5 class="subsection-title">Properties:</h5>
+
+    
+
+<table class="props">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>type</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">'EqualsCondition'</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>The AST node type identifier</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>column</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">ColumnRefAST</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>The column being tested</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>value</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">ValueAST</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>The value to compare against</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="parsers_SqlCaseParser.js.html">parsers/SqlCaseParser.js</a>, <a href="parsers_SqlCaseParser.js.html#line62">line 62</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+            
+                
+<h4 class="name" id="~InConditionAST">InConditionAST</h4>
+
+
+
+
+<div class="description">
+    <p>Represents an IN condition (e.g., <code>[Q4] IN (1, 2, 3)</code>)</p>
+</div>
+
+
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type">Object</span>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+    <h5 class="subsection-title">Properties:</h5>
+
+    
+
+<table class="props">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>type</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">'InCondition'</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>The AST node type identifier</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>column</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">ColumnRefAST</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>The column being tested</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>values</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">Array.&lt;ValueAST></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>Array of values to test against</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="parsers_SqlCaseParser.js.html">parsers/SqlCaseParser.js</a>, <a href="parsers_SqlCaseParser.js.html#line54">line 54</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+            
+                
+<h4 class="name" id="~NullValueAST">NullValueAST</h4>
+
+
+
+
+<div class="description">
+    <p>Represents a SQL NULL value</p>
+</div>
+
+
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type">Object</span>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+    <h5 class="subsection-title">Properties:</h5>
+
+    
+
+<table class="props">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>type</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">'NullValue'</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>The AST node type identifier</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="parsers_SqlCaseParser.js.html">parsers/SqlCaseParser.js</a>, <a href="parsers_SqlCaseParser.js.html#line96">line 96</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+            
+                
+<h4 class="name" id="~NumberValueAST">NumberValueAST</h4>
+
+
+
+
+<div class="description">
+    <p>Represents a numeric literal value</p>
+</div>
+
+
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type">Object</span>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+    <h5 class="subsection-title">Properties:</h5>
+
+    
+
+<table class="props">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>type</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">'NumberValue'</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>The AST node type identifier</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>value</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>The numeric value</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="parsers_SqlCaseParser.js.html">parsers/SqlCaseParser.js</a>, <a href="parsers_SqlCaseParser.js.html#line82">line 82</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+            
+                
+<h4 class="name" id="~StringValueAST">StringValueAST</h4>
+
+
+
+
+<div class="description">
+    <p>Represents a string literal value</p>
+</div>
+
+
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type">Object</span>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+    <h5 class="subsection-title">Properties:</h5>
+
+    
+
+<table class="props">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>type</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">'StringValue'</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>The AST node type identifier</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>value</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>The string value (without quotes)</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="parsers_SqlCaseParser.js.html">parsers/SqlCaseParser.js</a>, <a href="parsers_SqlCaseParser.js.html#line89">line 89</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+            
+                
+<h4 class="name" id="~ValueAST">ValueAST</h4>
+
+
+
+
+<div class="description">
+    <p>Union type representing the supported value types</p>
+</div>
+
+
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type">NumberValueAST</span>
+|
+
+<span class="param-type">StringValueAST</span>
+|
+
+<span class="param-type">NullValueAST</span>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="parsers_SqlCaseParser.js.html">parsers/SqlCaseParser.js</a>, <a href="parsers_SqlCaseParser.js.html#line77">line 77</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+            
+                
+<h4 class="name" id="~WhenClauseAST">WhenClauseAST</h4>
+
+
+
+
+<div class="description">
+    <p>Represents a WHEN...THEN clause within a CASE expression</p>
+</div>
+
+
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type">Object</span>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+    <h5 class="subsection-title">Properties:</h5>
+
+    
+
+<table class="props">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>type</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">'WhenClause'</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>The AST node type identifier</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>condition</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">ConditionAST</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>The condition to evaluate</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>expression</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">ValueAST</span>
+|
+
+<span class="param-type">ColumnRefAST</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>The result expression when condition is true</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="parsers_SqlCaseParser.js.html">parsers/SqlCaseParser.js</a>, <a href="parsers_SqlCaseParser.js.html#line34">line 34</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+            
+    
+
+    
+</article>
+
+</section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-KendoFilterConverter.html">KendoFilterConverter</a></li><li><a href="module-SqlCaseParser.html">SqlCaseParser</a></li></ul><h3>Classes</h3><ul><li><a href="AgentDbService.html">AgentDbService</a></li><li><a href="KendoFilterConverter.exports.KendoFilterConverter.html">exports.KendoFilterConverter</a></li><li><a href="SqlCaseParser.exports.SqlCaseParser.html">exports.SqlCaseParser</a></li><li><a href="module-KendoFilterConverter-KendoFilterConverter.html">KendoFilterConverter</a></li><li><a href="module-SqlCaseParser-SqlCaseParser.html">SqlCaseParser</a></li></ul><h3>Global</h3><ul><li><a href="global.html#updateGridDataSources">updateGridDataSources</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.5</a> on Thu Mar 12 2026 17:11:48 GMT-0400 (Eastern Daylight Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>
