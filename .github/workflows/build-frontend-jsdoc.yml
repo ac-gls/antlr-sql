@@ -8,7 +8,7 @@ on:
       - 'src/**'
       - 'package.json'
       - 'package-lock.json'
-      - 'jsdoc.frontend.json'
+      - 'jsdocs.frontend.json'
       - '.github/workflows/build-frontend-jsdoc.yml'
 
 permissions:
@@ -32,7 +32,7 @@ jobs:
         run: npm ci
 
       - name: Build JSDoc
-        run: npx jsdoc -c jsdoc.frontend.json
+        run: npx jsdoc -c jsdocs.frontend.json
 
       - name: Add .nojekyll to generated folder
         run: touch docs/.nojekyll
