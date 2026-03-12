@@ -1,6 +1,6 @@
 {
   "source": {
-    "include": ["frontend/src"],
+    "include": ["src"],
     "includePattern": ".+\\.js(doc|x)?$",
     "recurse": true
   },
