@@ -38,32 +38,47 @@ import { compare } from '../lib/helpers';
  */
 
 /**
+ * Minimal writable atom shape used for JSDoc typing in this module.
+ * @typedef {Object} WritableAtomLike
+ * @property {function():*} get - Returns current atom value
+ * @property {function(*):void} set - Sets atom value
+ * @property {function(function(*,*):void):function():void} listen - Subscribes to changes
+ */
+
+/**
+ * Minimal readable atom shape used for JSDoc typing in this module.
+ * @typedef {Object} ReadableAtomLike
+ * @property {function():*} get - Returns current atom value
+ * @property {function(function(*,*):void):function():void} listen - Subscribes to changes
+ */
+
+/**
  * Atom containing the current user object.
- * @type {import('nanostores').WritableAtom<CurrentUser|Object>}
+ * @type {WritableAtomLike}
  */
 const currentUser_$ = atom({});
 
 /**
  * Computed atom indicating whether the user is logged in.
- * @type {import('nanostores').ReadableAtom<boolean>}
+ * @type {ReadableAtomLike}
  */
 const currentUser_loggedIn$ = computed(currentUser_$, (user) => !_.isEmpty(user));
 
 /**
  * Atom indicating whether current user data is currently being loaded.
- * @type {import('nanostores').WritableAtom<boolean>}
+ * @type {WritableAtomLike}
  */
 const currentUser_loading$ = atom(false);
 
 /**
  * Atom containing the error message if the last load operation failed, or null if successful.
- * @type {import('nanostores').WritableAtom<string|null>}
+ * @type {WritableAtomLike}
  */
 const currentUser_error$ = atom(null);
 
 /**
  * Atom indicating whether current user has been loaded at least once.
- * @type {import('nanostores').WritableAtom<boolean>}
+ * @type {WritableAtomLike}
  */
 const currentUser_loaded$ = atom(false);
 
